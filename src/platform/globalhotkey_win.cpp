@@ -126,6 +126,11 @@ GlobalHotkey::~GlobalHotkey()
     delete m_impl;
 }
 
+bool GlobalHotkey::needsAccessibility() const
+{
+    return false; // Windows needs no permission for the low level hook
+}
+
 bool GlobalHotkey::isSupported(const QKeySequence &seq) const
 {
     return winVirtualKey(seq[0].key()) >= 0;

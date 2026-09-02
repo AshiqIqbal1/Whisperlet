@@ -176,14 +176,27 @@ QPushButton:disabled { color: #5E5E66; background: #222226; }
         if (!m_tapRadio->isChecked())
             return;
         const auto key = GlobalHotkey::ModKey(m_modCombo->currentData().toInt());
+        // Save the choice either way; whether it can register right now is a
+        // separate question from what the user asked for.
+        QSettings s;
+        s.setValue(QStringLiteral("hotkeyMode"), QStringLiteral("tap"));
+        s.setValue(QStringLiteral("modTapKey"), int(key));
+
         if (m_hotkey->setModifierTap(key)) {
-            QSettings s;
-            s.setValue(QStringLiteral("hotkeyMode"), QStringLiteral("tap"));
-            s.setValue(QStringLiteral("modTapKey"), int(key));
             m_hotkeyStatus->setText(tr("Tap %1 on its own to start and stop. Active when "
-                                       "you close Settings. On macOS this needs the "
-                                       "Accessibility permission.")
+                                       "you close Settings.")
                                         .arg(m_hotkey->comboLabel()));
+        } else if (m_hotkey->needsAccessibility()) {
+            // Silently doing nothing here is what made the shortcut look
+            // broken: the mode was selected but never registered.
+            m_hotkeyStatus->setText(tr("Tap %1 needs Accessibility permission. Turn "
+                                       "Whisperlet on in Privacy & Security, then it "
+                                       "starts working on its own.")
+                                        .arg(GlobalHotkey::modKeyLabel(key)));
+            TextInjector::requestPermission();
+            TextInjector::openPermissionSettings();
+        } else {
+            m_hotkeyStatus->setText(tr("Could not register that key."));
         }
     };
     connect(m_tapRadio, &QRadioButton::toggled, this, [applyTapChoice](bool on) {

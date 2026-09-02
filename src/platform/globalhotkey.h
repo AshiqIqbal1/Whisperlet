@@ -37,6 +37,13 @@ public:
     bool setSequence(const QKeySequence &seq);
     bool setModifierTap(ModKey key);
 
+    // True when the current trigger is actually registered with the OS.
+    bool isActive() const { return m_registered; }
+
+    // Modifier-tap needs the Accessibility permission on macOS; this says
+    // whether that is the thing standing in the way.
+    bool needsAccessibility() const;
+
     bool isModifierTapMode() const { return m_tapMode; }
     QKeySequence sequence() const { return m_seq; }
     ModKey modifierKey() const { return m_modKey; }

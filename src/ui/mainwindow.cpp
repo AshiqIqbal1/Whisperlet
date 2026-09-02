@@ -183,8 +183,11 @@ MainWindow::MainWindow(QWidget *parent)
     if (settings.value(QStringLiteral("hotkeyMode")).toString() == QStringLiteral("tap")) {
         const auto key = GlobalHotkey::ModKey(
             settings.value(QStringLiteral("modTapKey"), int(GlobalHotkey::ModKey::RightCmd)).toInt());
+        // Keep the user's choice even if it can't register yet: silently
+        // falling back to a different shortcut is why tapping the key
+        // appeared to do nothing at all.
         if (!m_hotkey->setModifierTap(key))
-            m_hotkey->setSequence(GlobalHotkey::defaultSequence()); // e.g. Accessibility not granted yet
+            watchForAccessibility();
     } else {
         const QString savedCombo = settings.value(QStringLiteral("globalHotkey")).toString();
         const QKeySequence combo = savedCombo.isEmpty()
@@ -375,6 +378,34 @@ QWidget *MainWindow::buildFooter()
 
     outer->addLayout(bottomRow);
     return wrap;
+}
+
+void MainWindow::watchForAccessibility()
+{
+    if (m_accessibilityWatch)
+        return; // already waiting
+
+    flashStatus(tr("Shortcut needs Accessibility permission"));
+    promptForAccessibility();
+
+    // The permission is granted outside our process, and macOS gives no
+    // notification for it, so poll until the tap registers. Cheap, and it
+    // stops the moment the shortcut is live.
+    m_accessibilityWatch = new QTimer(this);
+    m_accessibilityWatch->setInterval(2000);
+    connect(m_accessibilityWatch, &QTimer::timeout, this, [this] {
+        if (m_hotkey->isActive() || !m_hotkey->needsAccessibility()) {
+            m_accessibilityWatch->stop();
+            m_accessibilityWatch->deleteLater();
+            m_accessibilityWatch = nullptr;
+            return;
+        }
+        if (m_hotkey->setModifierTap(m_hotkey->modifierKey())) {
+            flashStatus(tr("Shortcut active: tap %1").arg(m_hotkey->comboLabel()));
+            refreshHint();
+        }
+    });
+    m_accessibilityWatch->start();
 }
 
 void MainWindow::promptForAccessibility()

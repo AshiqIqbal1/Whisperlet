@@ -11,6 +11,8 @@
 
 #include <Carbon/Carbon.h>
 
+#include <QDebug>
+
 namespace {
 
 constexpr UInt32 kHotKeySignature = 'WspF'; // arbitrary 4-char app namespace
@@ -174,6 +176,11 @@ GlobalHotkey::~GlobalHotkey()
     delete m_impl;
 }
 
+bool GlobalHotkey::needsAccessibility() const
+{
+    return m_tapMode && !AXIsProcessTrusted();
+}
+
 bool GlobalHotkey::isSupported(const QKeySequence &seq) const
 {
     return carbonKeyCode(seq[0].key()) >= 0;
@@ -183,8 +190,10 @@ bool GlobalHotkey::registerNative()
 {
     if (m_tapMode) {
         // Listen-only keyboard tap — needs Accessibility trust.
-        if (!AXIsProcessTrusted())
+        if (!AXIsProcessTrusted()) {
+            qWarning() << "[hotkey] modifier tap needs Accessibility permission";
             return false;
+        }
 
         m_impl->tapKeyCode = rightModKeyCode(m_modKey);
         m_impl->tapPending = false;
