@@ -203,6 +203,18 @@ std::vector<float> AudioRecorder::stop()
         ? std::move(m_samples)
         : resampleLinear(std::move(m_samples), m_format.sampleRate(), kTargetRate);
 
+    // Peak-normalize quiet captures here, at the source, so both the saved
+    // clip (playback) and the transcription see a healthy level. Low system
+    // input gain otherwise leaves recordings at a few percent of full scale.
+    float peak = 0.0f;
+    for (float s : result)
+        peak = std::max(peak, std::abs(s));
+    if (peak > 0.001f && peak < 0.5f) {
+        const float gain = 0.95f / peak;
+        for (float &s : result)
+            s *= gain;
+    }
+
     m_samples.clear();
     m_pending.clear();
     return result;
