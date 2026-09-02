@@ -7,6 +7,7 @@
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QPainter>
+#include <QCursor>
 #include <QScreen>
 #include <QTimer>
 
@@ -71,7 +72,13 @@ void RecordingPill::showTranscribing()
 void RecordingPill::showCentered()
 {
     adjustSize();
-    if (QScreen *screen = QGuiApplication::primaryScreen()) {
+    // Follow the user, not the app: place the pill on whichever screen the
+    // pointer is on. Pinning it to the primary screen made it appear on a
+    // display the user wasn't looking at.
+    QScreen *screen = QGuiApplication::screenAt(QCursor::pos());
+    if (!screen)
+        screen = QGuiApplication::primaryScreen();
+    if (screen) {
         const QRect area = screen->availableGeometry();
         move(area.center().x() - width() / 2, area.bottom() - 110);
     }

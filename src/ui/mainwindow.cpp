@@ -18,6 +18,7 @@
 #include "whisperengine.h"
 
 #include <QApplication>
+#include <QDebug>
 #include <QAudioDevice>
 #include <QAudioOutput>
 #include <QClipboard>
@@ -214,6 +215,8 @@ MainWindow::MainWindow(QWidget *parent)
         addCard(t, false);
 
     refreshEmptyState();
+
+    qInfo() << "[perm] accessibility(canInject)=" << TextInjector::canInject();
 
     // Ask for microphone access up front. Left to the first recording, the
     // system prompt appears mid-dictation and pulls the whole desktop into
