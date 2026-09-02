@@ -21,6 +21,10 @@ RecordingPill::RecordingPill(QWidget *parent)
     // Never steal focus — the field being dictated into must keep it.
     setAttribute(Qt::WA_ShowWithoutActivating, true);
     setAttribute(Qt::WA_TranslucentBackground, true);
+    // Qt hides tool windows on macOS as soon as the application is
+    // deactivated, which is precisely when this pill needs to be visible:
+    // the user is dictating into someone else's window.
+    setAttribute(Qt::WA_MacAlwaysShowToolWindow, true);
     setFixedHeight(44);
 
     auto *layout = new QHBoxLayout(this);
