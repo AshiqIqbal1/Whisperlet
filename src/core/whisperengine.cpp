@@ -3,6 +3,7 @@
 #include <whisper.h>
 
 #include <QDebug>
+#include <QRegularExpression>
 #include <QElapsedTimer>
 #include <QThread>
 
@@ -98,5 +99,15 @@ QString WhisperEngine::transcribe(const std::vector<float> &samples, const QStri
     for (int i = 0; i < segments; ++i) {
         text += QString::fromUtf8(whisper_full_get_segment_text(m_ctx, i));
     }
+    text = text.trimmed();
+
+    // Whisper narrates non-speech audio with bracketed tags such as
+    // [MUSIC PLAYING], (upbeat music) or [BLANK_AUDIO]. They are never
+    // something the user said, so strip them; if that is all there was,
+    // report nothing rather than typing a stage direction into their work.
+    static const QRegularExpression nonSpeech(
+        QStringLiteral(R"(\s*[\[(][^\])]*[\])]\s*)"));
+    text.remove(nonSpeech);
+
     return text.trimmed();
 }

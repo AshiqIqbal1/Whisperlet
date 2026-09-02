@@ -27,9 +27,20 @@ void OverlayWindow::makeFloatingOverlay(QWidget *widget)
                                    | NSWindowCollectionBehaviorStationary
                                    | NSWindowCollectionBehaviorIgnoresCycle)];
 
-    // Above normal and floating windows, at the level menus use, so a
-    // fullscreen app cannot cover it.
-    [window setLevel:NSPopUpMenuWindowLevel];
+    // Above fullscreen windows. A fullscreen app's own window sits high, so
+    // menu level is not enough to float over another app's fullscreen Space.
+    [window setLevel:NSScreenSaverWindowLevel];
+
+    // A plain panel still wants to activate its app, which macOS answers by
+    // switching Spaces away from the fullscreen app the user is typing in.
+    // A non-activating floating panel can be shown over that Space instead.
+    if ([window isKindOfClass:[NSPanel class]]) {
+        NSPanel *panel = static_cast<NSPanel *>(window);
+        [panel setStyleMask:([panel styleMask] | NSWindowStyleMaskNonactivatingPanel)];
+        [panel setFloatingPanel:YES];
+        [panel setBecomesKeyOnlyIfNeeded:YES];
+        [panel setWorksWhenModal:YES];
+    }
 
     // Never become key or main: the field being dictated into keeps focus.
     [window setHidesOnDeactivate:NO];
