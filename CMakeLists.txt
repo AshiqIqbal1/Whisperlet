@@ -88,6 +88,8 @@ qt_add_executable(Whisperlet
     src/core/whisperengine.cpp
     src/core/audiorecorder.h
     src/core/audiorecorder.cpp
+    src/core/audioutil.h
+    src/core/audioutil.cpp
     src/core/audioclipstore.h
     src/core/audioclipstore.cpp
     src/core/audiofiledecoder.h

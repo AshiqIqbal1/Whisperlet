@@ -10,7 +10,6 @@
 
 namespace {
 
-constexpr quint32 kSampleRate = 16000;
 constexpr quint16 kChannels = 1;
 constexpr quint16 kBitsPerSample = 16;
 
@@ -34,7 +33,7 @@ bool AudioClipStore::exists(const QString &id)
     return QFile::exists(path(id));
 }
 
-bool AudioClipStore::save(const QString &id, const std::vector<float> &samples)
+bool AudioClipStore::save(const QString &id, const std::vector<float> &samples, int rate)
 {
     QFile file(path(id));
     if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate))
@@ -43,6 +42,7 @@ bool AudioClipStore::save(const QString &id, const std::vector<float> &samples)
     QDataStream out(&file);
     out.setByteOrder(QDataStream::LittleEndian);
 
+    const quint32 kSampleRate = quint32(rate > 0 ? rate : 16000);
     const quint32 dataBytes = quint32(samples.size()) * sizeof(qint16);
     const quint32 byteRate = kSampleRate * kChannels * kBitsPerSample / 8;
 
@@ -72,14 +72,24 @@ bool AudioClipStore::save(const QString &id, const std::vector<float> &samples)
     return true;
 }
 
-std::vector<float> AudioClipStore::load(const QString &id)
+std::vector<float> AudioClipStore::load(const QString &id, int *rateOut)
 {
     QFile file(path(id));
     if (!file.open(QIODevice::ReadOnly) || file.size() <= 44)
         return {};
 
-    // We only ever read files we wrote, so a fixed 44-byte header skip is
-    // safe here — this is not a general-purpose WAV parser.
+    // We only ever read files we wrote, so fixed header offsets are safe
+    // here — this is not a general-purpose WAV parser. Sample rate lives at
+    // byte 24 of the canonical 44-byte header.
+    if (rateOut) {
+        file.seek(24);
+        QDataStream in(&file);
+        in.setByteOrder(QDataStream::LittleEndian);
+        quint32 rate = 0;
+        in >> rate;
+        *rateOut = rate > 0 ? int(rate) : 16000;
+    }
+
     file.seek(44);
     const QByteArray raw = file.readAll();
 

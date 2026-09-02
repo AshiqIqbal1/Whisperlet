@@ -90,6 +90,11 @@ private:
     bool m_transcribing = false;
     bool m_dictating = false; // current recording started via hotkey, away from the app
 
+    // Full-quality copy of the just-finished recording, held until the
+    // transcription job mints an id to save it under.
+    std::vector<float> m_pendingClipAudio;
+    int m_pendingClipRate = 16000;
+
     QElapsedTimer m_recordClock;
     QList<TranscriptCard *> m_cards;
 };

@@ -12,11 +12,13 @@ namespace AudioClipStore {
 QString path(const QString &id);
 bool exists(const QString &id);
 
-// samples: mono float32 in [-1,1] at 16kHz (AudioRecorder's output format).
-bool save(const QString &id, const std::vector<float> &samples);
+// samples: mono float32 in [-1,1] at `rate` Hz. Clips are stored at the
+// mic's native rate so playback sounds like real audio, not a phone call.
+bool save(const QString &id, const std::vector<float> &samples, int rate);
 
 // Inverse of save(). Empty vector if the file is missing/corrupt.
-std::vector<float> load(const QString &id);
+// `rateOut` receives the clip's sample rate when non-null.
+std::vector<float> load(const QString &id, int *rateOut = nullptr);
 
 void remove(const QString &id);
 

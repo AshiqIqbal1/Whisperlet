@@ -1,6 +1,7 @@
 #include "mainwindow.h"
 
 #include "audioclipstore.h"
+#include "audioutil.h"
 #include "audiofiledecoder.h"
 #include "audiorecorder.h"
 #include "globalhotkey.h"
@@ -431,6 +432,10 @@ void MainWindow::toggleRecording()
         }
         if (dictated)
             m_pill->showTranscribing();
+
+        // Store the full-quality copy for playback; the model gets 16kHz.
+        m_pendingClipAudio = m_recorder->takeNativeAudio();
+        m_pendingClipRate = m_recorder->nativeRate();
         runTranscription(std::move(samples), durationSec, QString(), dictated);
     }
 }
@@ -442,8 +447,16 @@ void MainWindow::runTranscription(std::vector<float> samples, int durationSec,
         ? QUuid::createUuid().toString(QUuid::WithoutBraces).left(8)
         : clipId;
 
-    if (clipId.isEmpty())
-        AudioClipStore::save(id, samples);
+    if (clipId.isEmpty()) {
+        // Native-rate audio when we have it (fresh recording), else the
+        // 16kHz copy (a decoded dropped file).
+        if (!m_pendingClipAudio.empty()) {
+            AudioClipStore::save(id, m_pendingClipAudio, m_pendingClipRate);
+            m_pendingClipAudio.clear();
+        } else {
+            AudioClipStore::save(id, samples, AudioUtil::kWhisperRate);
+        }
+    }
 
     const QString modelPath = m_models->localPath(m_models->activeModelId());
 
@@ -513,11 +526,14 @@ void MainWindow::retranscribe(const QString &id)
     if (!ensureModelReady())
         return;
 
-    std::vector<float> samples = AudioClipStore::load(id);
+    int clipRate = AudioUtil::kWhisperRate;
+    std::vector<float> samples = AudioClipStore::load(id, &clipRate);
     if (samples.empty()) {
         flashStatus(tr("No audio kept for this transcript"));
         return;
     }
+    if (clipRate != AudioUtil::kWhisperRate)
+        samples = AudioUtil::resample(std::move(samples), clipRate, AudioUtil::kWhisperRate);
 
     int durationSec = 0;
     for (auto *card : std::as_const(m_cards)) {

@@ -34,6 +34,13 @@ public:
     // Always 16000 — stop() resamples if the device captured at a
     // different native rate, so callers never need to branch on this.
     int sampleRate() const { return 16000; }
+
+    // Full-quality (native rate) copy of the last recording, conditioned but
+    // not downsampled — this is what gets stored for playback so clips don't
+    // sound like a phone call. Valid after stop(); moves out of the recorder.
+    std::vector<float> takeNativeAudio();
+    int nativeRate() const { return m_nativeRate; }
+
     QString lastError() const { return m_lastError; }
 
 signals:
@@ -48,6 +55,8 @@ private:
     QIODevice *m_device = nullptr;
     QByteArray m_pending;   // leftover partial sample from the last chunk
     std::vector<float> m_samples;
+    std::vector<float> m_nativeAudio; // conditioned, still at capture rate
+    int m_nativeRate = 16000;
     QString m_lastError;
 
     // Level smoothing: raw per-chunk RMS strobes badly at chunk rate, so we
