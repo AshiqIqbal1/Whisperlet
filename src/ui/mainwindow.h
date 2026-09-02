@@ -58,6 +58,7 @@ private:
                           const QString &clipId, bool dictated);
 
     bool ensureModelReady(); // downloaded? if not, nudges user to Settings
+    void promptForAccessibility(); // one-shot dialog with a deep link to the pane
     bool keepAudio() const;  // user opted to retain clips after transcription
     void purgeStoredAudio();
     void refreshHint();

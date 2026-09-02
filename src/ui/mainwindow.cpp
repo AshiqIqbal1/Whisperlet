@@ -32,7 +32,9 @@
 #include <QMediaDevices>
 #include <QMediaPlayer>
 #include <QMenu>
+#include <QMessageBox>
 #include <QMimeData>
+#include <QPushButton>
 #include <QScrollArea>
 #include <QSettings>
 #include <QStatusBar>
@@ -94,7 +96,8 @@ MainWindow::MainWindow(QWidget *parent)
 
     m_status = new QLabel(this);
     m_status->setObjectName(QStringLiteral("statusLabel"));
-    statusBar()->addWidget(m_status);
+    m_status->setAlignment(Qt::AlignCenter);
+    statusBar()->addWidget(m_status, /*stretch=*/1); // centered, full width
     // The status bar sits BELOW the central widget, so it owns the window's
     // bottom corners — round them here, #root rounds only the top pair.
     statusBar()->setStyleSheet(QStringLiteral(
@@ -125,15 +128,17 @@ MainWindow::MainWindow(QWidget *parent)
             if (TextInjector::canInject()) {
                 TextInjector::pasteIntoActiveApp(text);
             } else {
-                // Ask at most once per run — re-prompting on every dictation
+                // The text is never lost: clipboard first, then explain once.
+                QGuiApplication::clipboard()->setText(text);
+                flashStatus(tr("Copied to clipboard — Accessibility permission needed to type"));
+
+                // Ask at most once per run; re-prompting on every dictation
                 // is what made this feel like it asks "every single time".
                 if (!m_askedForAccessibility) {
                     m_askedForAccessibility = true;
                     TextInjector::requestPermission();
+                    promptForAccessibility();
                 }
-                flashStatus(tr("Allow Whisperlet under Privacy & Security → Accessibility "
-                               "to type into other apps — text copied to clipboard instead"));
-                QGuiApplication::clipboard()->setText(text);
             }
         }
 
@@ -273,8 +278,8 @@ QWidget *MainWindow::buildList()
 
     m_emptyState = new QWidget(body);
     auto *emptyLay = new QVBoxLayout(m_emptyState);
-    emptyLay->setContentsMargins(0, 60, 0, 0);
-    auto *emptyLabel = new QLabel(tr("No transcriptions yet\nPress record to get started"), m_emptyState);
+    emptyLay->setContentsMargins(0, 72, 0, 0);
+    auto *emptyLabel = new QLabel(tr("Nothing transcribed yet\n\nPress record, or use your shortcut\nfrom anywhere"), m_emptyState);
     emptyLabel->setObjectName(QStringLiteral("emptyTitle"));
     emptyLabel->setAlignment(Qt::AlignCenter);
     emptyLay->addWidget(emptyLabel);
@@ -364,6 +369,23 @@ QWidget *MainWindow::buildFooter()
 
     outer->addLayout(bottomRow);
     return wrap;
+}
+
+void MainWindow::promptForAccessibility()
+{
+    QMessageBox box(this);
+    box.setIcon(QMessageBox::Information);
+    box.setWindowTitle(tr("Permission needed"));
+    box.setText(tr("Whisperlet needs Accessibility access to type into other apps."));
+    box.setInformativeText(tr("Open Privacy & Security → Accessibility, then switch "
+                              "Whisperlet on. Your transcript was copied to the "
+                              "clipboard in the meantime."));
+    QAbstractButton *openBtn = box.addButton(tr("Open Settings"), QMessageBox::AcceptRole);
+    box.addButton(tr("Later"), QMessageBox::RejectRole);
+    box.exec();
+
+    if (box.clickedButton() == openBtn)
+        TextInjector::openPermissionSettings();
 }
 
 bool MainWindow::keepAudio() const

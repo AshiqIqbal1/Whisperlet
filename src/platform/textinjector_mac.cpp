@@ -1,8 +1,10 @@
 #include "textinjector.h"
 
+#include <QDesktopServices>
 #include <QGuiApplication>
 #include <QClipboard>
 #include <QTimer>
+#include <QUrl>
 
 #include <ApplicationServices/ApplicationServices.h>
 
@@ -22,6 +24,14 @@ void TextInjector::requestPermission()
                                                  &kCFTypeDictionaryValueCallBacks);
     AXIsProcessTrustedWithOptions(options);
     CFRelease(options);
+}
+
+void TextInjector::openPermissionSettings()
+{
+    // Deep-links to Privacy & Security -> Accessibility. Same URL scheme
+    // works on Ventura/Sonoma and later System Settings.
+    QDesktopServices::openUrl(QUrl(QStringLiteral(
+        "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")));
 }
 
 void TextInjector::pasteIntoActiveApp(const QString &text)

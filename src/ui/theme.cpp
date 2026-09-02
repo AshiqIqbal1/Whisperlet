@@ -38,6 +38,7 @@ QMainWindow {
     border: 1px solid #2A2A30;
     border-radius: 14px;
 }
+#card:focus { border: 1px solid #3A3A42; }
 #card[hovered="true"] {
     background: #232327;
     border: 1px solid #3A3A42;
@@ -106,6 +107,7 @@ QToolButton#footerBtn:hover { background: #292930; }
 #hint {
     color: #6E6E77;
     font-size: 12px;
+    padding-left: 2px;
 }
 #kbd {
     background: #232327;
@@ -119,11 +121,13 @@ QToolButton#footerBtn:hover { background: #292930; }
 #statusLabel {
     color: #8A8A93;
     font-size: 13px;
+    padding: 2px 0;
 }
 
 #emptyTitle {
     color: #6E6E77;
     font-size: 15px;
+    line-height: 24px;
 }
 
 /* ---- scroll area ---- */

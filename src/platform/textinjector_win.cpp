@@ -16,6 +16,11 @@ void TextInjector::requestPermission()
     // nothing to do on Windows
 }
 
+void TextInjector::openPermissionSettings()
+{
+    // Windows needs no permission for SendInput.
+}
+
 void TextInjector::pasteIntoActiveApp(const QString &text)
 {
     const QString previous = QGuiApplication::clipboard()->text();

@@ -3,6 +3,7 @@
 #include "globalhotkey.h"
 #include "modelcatalog.h"
 #include "modelmanager.h"
+#include "textinjector.h"
 #include "theme.h"
 
 #include <QButtonGroup>
@@ -28,6 +29,7 @@ SettingsDialog::SettingsDialog(ModelManager *models, GlobalHotkey *hotkey, QWidg
     setMinimumWidth(520);
     setStyleSheet(Theme::styleSheet() + QStringLiteral(R"(
 QDialog { background: #1A1A1D; }
+#sectionHeading { font-size: 16px; font-weight: 600; padding-top: 4px; }
 QRadioButton { spacing: 8px; font-size: 14px; }
 QRadioButton:disabled { color: #5E5E66; }
 QProgressBar {
@@ -56,7 +58,7 @@ QPushButton:disabled { color: #5E5E66; background: #222226; }
     layout->setSpacing(14);
 
     auto *heading = new QLabel(tr("Transcription model"), this);
-    heading->setStyleSheet(QStringLiteral("font-size: 16px; font-weight: 600;"));
+    heading->setObjectName(QStringLiteral("sectionHeading"));
     layout->addWidget(heading);
 
     auto *sub = new QLabel(tr("Models are downloaded once and stored locally. "
@@ -87,17 +89,17 @@ QPushButton:disabled { color: #5E5E66; background: #222226; }
             if (on)
                 m_models->setActiveModelId(id);
         });
-        grid->addWidget(r.active, row, 0);
+        grid->addWidget(r.active, row, 0, Qt::AlignVCenter);
 
         r.size = new QLabel(ModelCatalog::humanSize(info.approxBytes), this);
         r.size->setObjectName(QStringLiteral("cardMeta"));
-        grid->addWidget(r.size, row, 1, Qt::AlignLeft);
+        grid->addWidget(r.size, row, 1, Qt::AlignRight | Qt::AlignVCenter);
 
         r.progress = new QProgressBar(this);
         r.progress->setRange(0, 100);
         r.progress->setVisible(false);
         r.progress->setFixedWidth(110);
-        grid->addWidget(r.progress, row, 2);
+        grid->addWidget(r.progress, row, 2, Qt::AlignVCenter);
 
         r.action = new QPushButton(this);
         r.action->setFixedWidth(96);
@@ -118,7 +120,7 @@ QPushButton:disabled { color: #5E5E66; background: #222226; }
 
     // --- global shortcut ---------------------------------------------------
     auto *hotkeyHeading = new QLabel(tr("Global shortcut"), this);
-    hotkeyHeading->setStyleSheet(QStringLiteral("font-size: 16px; font-weight: 600;"));
+    hotkeyHeading->setObjectName(QStringLiteral("sectionHeading"));
     layout->addWidget(hotkeyHeading);
 
     // Two trigger styles: a key combination, or a single right-side
@@ -211,6 +213,29 @@ QPushButton:disabled { color: #5E5E66; background: #222226; }
         QSettings().setValue(QStringLiteral("pasteAfterDictation"), on);
     });
     layout->addWidget(pasteBox);
+
+#ifdef Q_OS_MAC
+    // Only shown while the permission is missing — once granted there's
+    // nothing to act on, so the row disappears instead of nagging.
+    if (!TextInjector::canInject()) {
+        auto *permRow = new QHBoxLayout;
+        permRow->setSpacing(10);
+
+        auto *warn = new QLabel(tr("Accessibility access is off — dictated text is "
+                                   "copied to the clipboard instead of typed."), this);
+        warn->setObjectName(QStringLiteral("cardMeta"));
+        warn->setWordWrap(true);
+        permRow->addWidget(warn, 1);
+
+        auto *openBtn = new QPushButton(tr("Open Settings"), this);
+        connect(openBtn, &QPushButton::clicked, this, [] {
+            TextInjector::requestPermission(); // adds us to the list
+            TextInjector::openPermissionSettings();
+        });
+        permRow->addWidget(openBtn);
+        layout->addLayout(permRow);
+    }
+#endif
 
     auto *keepAudioBox = new QCheckBox(tr("Keep recordings after transcribing"), this);
     keepAudioBox->setChecked(QSettings().value(QStringLiteral("keepAudio"), false).toBool());
