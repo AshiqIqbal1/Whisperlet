@@ -6,6 +6,9 @@
 #include <QElapsedTimer>
 #include <QThread>
 
+#include <algorithm>
+#include <cmath>
+
 WhisperEngine::~WhisperEngine()
 {
     if (m_ctx)
@@ -48,6 +51,19 @@ QString WhisperEngine::transcribe(const std::vector<float> &samples, const QStri
         return QString();
     }
 
+    // Peak-normalize quiet input: laptop mics often record well below full
+    // scale and whisper's accuracy drops with low-level audio. Leave
+    // already-loud audio untouched.
+    std::vector<float> audio = samples;
+    float peak = 0.0f;
+    for (float s : audio)
+        peak = std::max(peak, std::abs(s));
+    if (peak > 0.001f && peak < 0.5f) {
+        const float gain = 0.95f / peak;
+        for (float &s : audio)
+            s *= gain;
+    }
+
     whisper_full_params params = whisper_full_default_params(WHISPER_SAMPLING_GREEDY);
     params.print_progress   = false;
     params.print_realtime   = false;
@@ -68,13 +84,13 @@ QString WhisperEngine::transcribe(const std::vector<float> &samples, const QStri
     QElapsedTimer clock;
     clock.start();
 
-    if (whisper_full(m_ctx, params, samples.data(), static_cast<int>(samples.size())) != 0) {
+    if (whisper_full(m_ctx, params, audio.data(), static_cast<int>(audio.size())) != 0) {
         m_lastError = QStringLiteral("whisper_full failed");
         return QString();
     }
 
     m_lastTranscribeMs = clock.elapsed();
-    qInfo() << "[perf] transcribe" << (samples.size() / 16000.0) << "s of audio in"
+    qInfo() << "[perf] transcribe" << (audio.size() / 16000.0) << "s of audio in"
             << m_lastTranscribeMs << "ms on" << threads << "threads";
 
     QString text;
