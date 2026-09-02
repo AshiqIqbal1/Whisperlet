@@ -39,10 +39,12 @@ RecordingPill::RecordingPill(QWidget *parent)
     });
 }
 
-void RecordingPill::showRecording()
+void RecordingPill::showRecording(const QString &stopHint)
 {
     m_recording = true;
-    m_text->setText(tr("Recording…"));
+    m_text->setText(stopHint.isEmpty()
+                        ? tr("Recording…")
+                        : tr("Recording…   %1 to stop").arg(stopHint));
     m_dotAlpha = 1.0;
     m_pulse->start();
     showCentered();

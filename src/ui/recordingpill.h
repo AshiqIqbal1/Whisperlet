@@ -1,6 +1,7 @@
 #ifndef RECORDINGPILL_H
 #define RECORDINGPILL_H
 
+#include <QString>
 #include <QWidget>
 
 class QLabel;
@@ -16,7 +17,8 @@ class RecordingPill : public QWidget
 public:
     explicit RecordingPill(QWidget *parent = nullptr);
 
-    void showRecording();
+    // stopHint: label of the key that ends the take, e.g. "Right \u2318".
+    void showRecording(const QString &stopHint = QString());
     void showTranscribing();
 
 protected:

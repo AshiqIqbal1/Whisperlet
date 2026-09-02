@@ -146,6 +146,15 @@ if(APPLE)
         MACOSX_BUNDLE_BUNDLE_VERSION "1"
         MACOSX_BUNDLE_ICON_FILE "whisperlet.icns"
     )
+    # Ad-hoc sign every build. macOS ties Accessibility/Microphone grants to
+    # the app's signature; an unsigned bundle looks like a brand-new app on
+    # each rebuild, so the permission prompts come back every launch.
+    add_custom_command(TARGET Whisperlet POST_BUILD
+        COMMAND codesign --force --sign - --timestamp=none
+                "$<TARGET_BUNDLE_DIR:Whisperlet>"
+        COMMENT "Ad-hoc signing bundle (keeps macOS permission grants)"
+        VERBATIM
+    )
 elseif(WIN32)
     target_sources(Whisperlet PRIVATE
         src/platform/globalhotkey_win.cpp

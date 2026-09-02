@@ -90,7 +90,8 @@ private:
     QFutureWatcher<bool> m_preloadWatcher;
     RecordingPill *m_pill = nullptr;
     bool m_transcribing = false;
-    bool m_dictating = false; // current recording started via hotkey, away from the app
+    bool m_dictating = false; // current recording started via the global hotkey
+    bool m_askedForAccessibility = false; // prompt at most once per run
 
     // Full-quality copy of the just-finished recording, held until the
     // transcription job mints an id to save it under.

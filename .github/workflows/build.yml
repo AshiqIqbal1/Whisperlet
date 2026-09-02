@@ -33,8 +33,15 @@ jobs:
 
       - name: Package (dmg)
         run: |
-          macdeployqt build/Whisperlet.app -dmg
-          mv build/Whisperlet.dmg Whisperlet-macos-arm64.dmg
+          macdeployqt build/Whisperlet.app
+          # Re-sign AFTER macdeployqt: it rewrites the bundled Qt libraries,
+          # which invalidates the signature CMake applied. Without a valid
+          # signature macOS forgets Accessibility/Microphone grants on every
+          # launch.
+          codesign --force --deep --sign - --timestamp=none build/Whisperlet.app
+          codesign --verify --deep --strict build/Whisperlet.app
+          hdiutil create -volname Whisperlet -srcfolder build/Whisperlet.app \
+            -ov -format UDZO Whisperlet-macos-arm64.dmg
 
       - uses: actions/upload-artifact@v4
         with:

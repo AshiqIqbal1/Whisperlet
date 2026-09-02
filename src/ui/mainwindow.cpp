@@ -125,9 +125,14 @@ MainWindow::MainWindow(QWidget *parent)
             if (TextInjector::canInject()) {
                 TextInjector::pasteIntoActiveApp(text);
             } else {
-                TextInjector::requestPermission(); // mac: shows Accessibility prompt
-                flashStatus(tr("Grant Accessibility permission to let Whisperlet "
-                               "type into other apps — text was copied instead"));
+                // Ask at most once per run — re-prompting on every dictation
+                // is what made this feel like it asks "every single time".
+                if (!m_askedForAccessibility) {
+                    m_askedForAccessibility = true;
+                    TextInjector::requestPermission();
+                }
+                flashStatus(tr("Allow Whisperlet under Privacy & Security → Accessibility "
+                               "to type into other apps — text copied to clipboard instead"));
                 QGuiApplication::clipboard()->setText(text);
             }
         }
@@ -161,8 +166,11 @@ MainWindow::MainWindow(QWidget *parent)
     // floating pill, and paste the result into that app when done.
     m_hotkey = new GlobalHotkey(this);
     connect(m_hotkey, &GlobalHotkey::activated, this, [this] {
+        // The hotkey is always dictation: press it, carry on working (click
+        // into whatever field you want), press again and the text lands
+        // there. We never raise or focus our own window doing this.
         if (!m_recorder->isRecording())
-            m_dictating = !isActiveWindow();
+            m_dictating = true;
         toggleRecording();
     });
     QSettings settings;
@@ -431,7 +439,7 @@ void MainWindow::toggleRecording()
         m_recordClock.start();
         m_record->setRecording(true);
         if (m_dictating)
-            m_pill->showRecording();
+            m_pill->showRecording(m_hotkey->comboLabel());
         flashStatus(tr("Recording…"));
     } else {
         std::vector<float> samples = m_recorder->stop();
