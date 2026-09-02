@@ -3,6 +3,11 @@
 #include <QString>
 #include <QVector>
 
+// windows.h defines min/max macros that break std::min and friends.
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 
 #include <algorithm>
