@@ -69,8 +69,10 @@ MainWindow::MainWindow(QWidget *parent)
 
     m_models = new ModelManager(this);
     m_recorder = new AudioRecorder(this);
-    connect(m_recorder, &AudioRecorder::levelChanged, this,
-            [this](qreal level) { m_record->setLevel(level); });
+    connect(m_recorder, &AudioRecorder::levelChanged, this, [this](qreal level) {
+        m_record->setLevel(level);
+        m_pill->setLevel(level); // drives the meter on the floating pill
+    });
 
     m_player = new QMediaPlayer(this);
     m_audioOut = new QAudioOutput(this);
