@@ -1,10 +1,12 @@
 #include "textinjector.h"
 
-#include <QGuiApplication>
-#include <QClipboard>
-#include <QTimer>
+#include <QString>
+#include <QVector>
 
 #include <windows.h>
+
+#include <algorithm>
+#include <vector>
 
 bool TextInjector::canInject()
 {
@@ -23,33 +25,51 @@ void TextInjector::openPermissionSettings()
 
 void TextInjector::pasteIntoActiveApp(const QString &text)
 {
-    const QString previous = QGuiApplication::clipboard()->text();
-    QGuiApplication::clipboard()->setText(text);
+    // Type the characters directly rather than going through the clipboard
+    // and Ctrl+V. Three reasons:
+    //  - the clipboard is never touched, so the user's copied content is
+    //    left alone and the transcript never sits in a shared buffer
+    //  - Ctrl+V is not paste everywhere: the classic console and several
+    //    terminals use something else, and the keystroke would be lost
+    //  - no timing race between setting the clipboard and the paste landing
+    //
+    // KEYEVENTF_UNICODE carries the character itself, so keyboard layout
+    // does not matter either.
+    const QVector<uint> ucs4 = text.toUcs4();
+    if (ucs4.isEmpty())
+        return;
 
-    // Put whatever the user had copied back once the paste has landed.
-    if (!previous.isEmpty()) {
-        QTimer::singleShot(1000, [previous] {
-            QGuiApplication::clipboard()->setText(previous);
-        });
+    std::vector<INPUT> inputs;
+    inputs.reserve(size_t(ucs4.size()) * 4);
+
+    auto appendUnit = [&inputs](wchar_t unit) {
+        INPUT down{};
+        down.type = INPUT_KEYBOARD;
+        down.ki.wScan = unit;
+        down.ki.dwFlags = KEYEVENTF_UNICODE;
+        inputs.push_back(down);
+
+        INPUT up = down;
+        up.ki.dwFlags = KEYEVENTF_UNICODE | KEYEVENTF_KEYUP;
+        inputs.push_back(up);
+    };
+
+    for (uint cp : ucs4) {
+        if (cp > 0xFFFF) {
+            // Outside the BMP: send the surrogate pair, e.g. emoji.
+            const uint v = cp - 0x10000;
+            appendUnit(wchar_t(0xD800 + (v >> 10)));
+            appendUnit(wchar_t(0xDC00 + (v & 0x3FF)));
+        } else {
+            appendUnit(wchar_t(cp));
+        }
     }
 
-    QTimer::singleShot(150, [] {
-        INPUT inputs[4] = {};
-
-        inputs[0].type = INPUT_KEYBOARD;
-        inputs[0].ki.wVk = VK_CONTROL;
-
-        inputs[1].type = INPUT_KEYBOARD;
-        inputs[1].ki.wVk = 'V';
-
-        inputs[2].type = INPUT_KEYBOARD;
-        inputs[2].ki.wVk = 'V';
-        inputs[2].ki.dwFlags = KEYEVENTF_KEYUP;
-
-        inputs[3].type = INPUT_KEYBOARD;
-        inputs[3].ki.wVk = VK_CONTROL;
-        inputs[3].ki.dwFlags = KEYEVENTF_KEYUP;
-
-        SendInput(4, inputs, sizeof(INPUT));
-    });
+    // Send in chunks: a very long transcript in one call can be dropped by
+    // applications that process input synchronously.
+    constexpr size_t kChunk = 200;
+    for (size_t i = 0; i < inputs.size(); i += kChunk) {
+        const UINT count = UINT(std::min(kChunk, inputs.size() - i));
+        SendInput(count, inputs.data() + i, sizeof(INPUT));
+    }
 }

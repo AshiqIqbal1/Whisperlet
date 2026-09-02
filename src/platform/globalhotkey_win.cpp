@@ -86,6 +86,12 @@ struct GlobalHotkey::Impl : public QAbstractNativeEventFilter
     {
         if (code == HC_ACTION && s_instance && s_instance->hook) {
             auto *kb = reinterpret_cast<KBDLLHOOKSTRUCT *>(lParam);
+
+            // Ignore synthetic input, including the keystrokes this app
+            // sends itself when typing a transcript into another window.
+            if (kb->flags & LLKHF_INJECTED)
+                return CallNextHookEx(nullptr, code, wParam, lParam);
+
             const bool down = (wParam == WM_KEYDOWN || wParam == WM_SYSKEYDOWN);
             const bool up = (wParam == WM_KEYUP || wParam == WM_SYSKEYUP);
 

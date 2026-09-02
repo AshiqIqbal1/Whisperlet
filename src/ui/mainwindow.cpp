@@ -184,8 +184,15 @@ MainWindow::MainWindow(QWidget *parent)
     });
     QSettings settings;
     if (settings.value(QStringLiteral("hotkeyMode")).toString() == QStringLiteral("tap")) {
+        // Default differs by platform: tapping the Windows key on its own
+        // opens the Start menu, so Right Alt is the sane default there.
+#ifdef Q_OS_WIN
+        constexpr auto kDefaultTapKey = GlobalHotkey::ModKey::RightAlt;
+#else
+        constexpr auto kDefaultTapKey = GlobalHotkey::ModKey::RightCmd;
+#endif
         const auto key = GlobalHotkey::ModKey(
-            settings.value(QStringLiteral("modTapKey"), int(GlobalHotkey::ModKey::RightCmd)).toInt());
+            settings.value(QStringLiteral("modTapKey"), int(kDefaultTapKey)).toInt());
         // Keep the user's choice even if it can't register yet: silently
         // falling back to a different shortcut is why tapping the key
         // appeared to do nothing at all.
