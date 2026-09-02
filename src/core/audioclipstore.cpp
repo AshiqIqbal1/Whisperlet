@@ -38,6 +38,9 @@ bool AudioClipStore::save(const QString &id, const std::vector<float> &samples, 
     QFile file(path(id));
     if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate))
         return false;
+    // Recordings of the user's voice: owner only, same reasoning as the
+    // transcript store.
+    file.setPermissions(QFileDevice::ReadOwner | QFileDevice::WriteOwner);
 
     QDataStream out(&file);
     out.setByteOrder(QDataStream::LittleEndian);

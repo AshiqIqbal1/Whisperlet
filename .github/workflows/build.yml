@@ -9,6 +9,10 @@ on:
 
 # 6.9+ required on macOS: Qt <=6.8 links the AGL framework, which Apple
 # removed from the SDK shipped on current macos-latest runners.
+# Least privilege by default: only the release job re-enables write access.
+permissions:
+  contents: read
+
 env:
   QT_VERSION: '6.9.*'
 

@@ -2,6 +2,7 @@
 
 #include <QApplication>
 #include <QDir>
+#include <QFile>
 #include <QFileInfo>
 #include <QIcon>
 #include <QLocale>
@@ -50,6 +51,15 @@ int main(int argc, char *argv[])
     a.setWindowIcon(QIcon(QStringLiteral(":/assets/icon-64.png")));
 
     migrateFromWhisperFlow();
+
+    // Everything we store (transcripts, recordings, models) lives here.
+    // Qt creates directories world readable by default; on a shared machine
+    // that would let any other local account read the user's dictation.
+    const QString dataDir =
+        QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation);
+    QDir().mkpath(dataDir);
+    QFile::setPermissions(dataDir, QFileDevice::ReadOwner | QFileDevice::WriteOwner
+                                       | QFileDevice::ExeOwner);
 
     QTranslator translator;
     const QStringList uiLanguages = QLocale::system().uiLanguages();

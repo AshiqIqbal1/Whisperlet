@@ -58,5 +58,9 @@ void TranscriptStore::save(const QList<Transcript> &transcripts)
     QFile file(filePath());
     if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate))
         return;
+    // Transcripts are whatever the user dictated: notes, messages, possibly
+    // credentials read aloud. Default file mode is world readable, so on a
+    // shared machine any other local account could read them.
+    file.setPermissions(QFileDevice::ReadOwner | QFileDevice::WriteOwner);
     file.write(QJsonDocument(arr).toJson(QJsonDocument::Indented));
 }
