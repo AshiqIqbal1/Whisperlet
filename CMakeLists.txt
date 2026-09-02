@@ -1,5 +1,10 @@
 cmake_minimum_required(VERSION 3.19)
-project(Whisperlet LANGUAGES CXX)
+# OBJCXX: the macOS overlay backend is Objective-C++ (AppKit).
+if(APPLE)
+    project(Whisperlet LANGUAGES CXX OBJCXX)
+else()
+    project(Whisperlet LANGUAGES CXX)
+endif()
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -103,6 +108,7 @@ qt_add_executable(Whisperlet
     src/platform/globalhotkey.h
     src/platform/globalhotkey_common.cpp
     src/platform/textinjector.h
+    src/platform/overlaywindow.h
 )
 
 # In-app logo (title bar); bundle/EXE icons are handled per-platform below.
@@ -126,6 +132,7 @@ if(APPLE)
     target_sources(Whisperlet PRIVATE
         src/platform/globalhotkey_mac.cpp
         src/platform/textinjector_mac.cpp
+        src/platform/overlaywindow_mac.mm
         assets/whisperlet.icns
     )
     # Carbon: global hotkey. ApplicationServices: AX* trust check + CGEvent
@@ -133,6 +140,7 @@ if(APPLE)
     target_link_libraries(Whisperlet PRIVATE
         "-framework Carbon"
         "-framework ApplicationServices"
+        "-framework AppKit"
     )
     set_source_files_properties(assets/whisperlet.icns PROPERTIES
         MACOSX_PACKAGE_LOCATION "Resources")
@@ -159,6 +167,7 @@ elseif(WIN32)
     target_sources(Whisperlet PRIVATE
         src/platform/globalhotkey_win.cpp
         src/platform/textinjector_win.cpp
+        src/platform/overlaywindow_win.cpp
         resources/whisperlet.rc
     )
 endif()

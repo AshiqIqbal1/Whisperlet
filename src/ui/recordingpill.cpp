@@ -1,5 +1,6 @@
 #include "recordingpill.h"
 
+#include "overlaywindow.h"
 #include "theme.h"
 
 #include <QGuiApplication>
@@ -31,6 +32,10 @@ RecordingPill::RecordingPill(QWidget *parent)
 
     // Low-rate blink (2 Hz) instead of a continuous fade: visually the same
     // "alive" cue at a fraction of the wakeups/repaints — battery matters.
+    // Float over every Space and over fullscreen apps, so the pill is
+    // visible wherever the user is actually typing.
+    OverlayWindow::makeFloatingOverlay(this);
+
     m_pulse = new QTimer(this);
     m_pulse->setInterval(500);
     connect(m_pulse, &QTimer::timeout, this, [this] {
@@ -70,6 +75,10 @@ void RecordingPill::showCentered()
     // with it our whole app) forward, which steals focus from the field the
     // user is dictating into. The pill is already always-on-top.
     show();
+
+    // Re-apply after show(): Qt can recreate the native window between
+    // hide and show, which drops the all-Spaces collection behavior.
+    OverlayWindow::makeFloatingOverlay(this);
 }
 
 void RecordingPill::paintEvent(QPaintEvent *)
