@@ -66,8 +66,10 @@ void RecordingPill::showCentered()
         const QRect area = screen->availableGeometry();
         move(area.center().x() - width() / 2, area.bottom() - 110);
     }
+    // show() only: raise() asks the window server to bring this window (and
+    // with it our whole app) forward, which steals focus from the field the
+    // user is dictating into. The pill is already always-on-top.
     show();
-    raise();
 }
 
 void RecordingPill::paintEvent(QPaintEvent *)

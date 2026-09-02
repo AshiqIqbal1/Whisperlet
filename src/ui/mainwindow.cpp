@@ -32,6 +32,7 @@
 #include <QMediaDevices>
 #include <QMediaPlayer>
 #include <QMenu>
+#include <QPermissions>
 #include <QMessageBox>
 #include <QMimeData>
 #include <QPushButton>
@@ -204,6 +205,11 @@ MainWindow::MainWindow(QWidget *parent)
         addCard(t, false);
 
     refreshEmptyState();
+
+    // Ask for microphone access up front. Left to the first recording, the
+    // system prompt appears mid-dictation and pulls the whole desktop into
+    // this app, which is exactly what we're trying not to do.
+    requestMicrophoneAccess();
 
     // Preload the active model in the background. Without this the first
     // transcription silently pays the full model load (large-v3-turbo is a
@@ -380,6 +386,28 @@ QWidget *MainWindow::buildFooter()
     return wrap;
 }
 
+void MainWindow::requestMicrophoneAccess()
+{
+#if QT_VERSION >= QT_VERSION_CHECK(6, 6, 0)
+    QMicrophonePermission mic;
+    switch (qApp->checkPermission(mic)) {
+    case Qt::PermissionStatus::Undetermined:
+        qApp->requestPermission(mic, this, [this](const QPermission &granted) {
+            if (granted.status() != Qt::PermissionStatus::Granted)
+                flashStatus(tr("Microphone access denied. Enable Whisperlet under "
+                               "Privacy & Security, Microphone."));
+        });
+        break;
+    case Qt::PermissionStatus::Denied:
+        flashStatus(tr("Microphone access is off. Enable Whisperlet under "
+                       "Privacy & Security, Microphone."));
+        break;
+    case Qt::PermissionStatus::Granted:
+        break;
+    }
+#endif
+}
+
 void MainWindow::watchForAccessibility()
 {
     if (m_accessibilityWatch)
@@ -469,6 +497,13 @@ bool MainWindow::ensureModelReady()
     const QString id = m_models->activeModelId();
     if (m_models->isDownloaded(id))
         return true;
+
+    // Opening Settings would raise this app over whatever the user is
+    // typing into, so during dictation just say what's wrong.
+    if (m_dictating) {
+        flashStatus(tr("Model \"%1\" is not downloaded yet.").arg(id));
+        return false;
+    }
 
     flashStatus(tr("Model \"%1\" is not downloaded yet. Opening Settings.").arg(id));
     openSettings();
