@@ -554,7 +554,7 @@ void MainWindow::toggleRecording()
         m_recordClock.start();
         m_record->setRecording(true);
         if (m_dictating)
-            m_pill->showRecording(m_hotkey->comboLabel());
+            m_pill->showRecording();
         flashStatus(tr("Recording…"));
     } else {
         std::vector<float> samples = m_recorder->stop();

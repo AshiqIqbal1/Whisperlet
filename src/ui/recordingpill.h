@@ -4,8 +4,6 @@
 #include <QString>
 #include <QWidget>
 
-#include <array>
-
 class QLabel;
 class QTimer;
 
@@ -20,7 +18,8 @@ class RecordingPill : public QWidget
 public:
     explicit RecordingPill(QWidget *parent = nullptr);
 
-    // stopHint: label of the key that ends the take, e.g. "Right Cmd".
+    // stopHint is accepted for call compatibility but deliberately unused:
+    // the pill stays a single calm line, not an instruction panel.
     void showRecording(const QString &stopHint = QString());
     void showTranscribing();
 
@@ -33,18 +32,13 @@ protected:
 
 private:
     void showCentered();
-    void drawMeter(QPainter &p, const QRectF &area);
-    void drawSpinner(QPainter &p, const QRectF &area);
 
     QLabel *m_text = nullptr;
-    QLabel *m_hint = nullptr;
     QTimer *m_animation = nullptr;
 
-    static constexpr int kBars = 5;
-    std::array<qreal, kBars> m_bars{};   // current bar heights, 0..1
-    std::array<qreal, kBars> m_targets{}; // where each bar is heading
-    qreal m_level = 0.0;
-    qreal m_phase = 0.0;   // transcribing spinner rotation
+    qreal m_level = 0.0;  // incoming mic level, 0..1
+    qreal m_pulse = 0.0;  // smoothed level actually drawn
+    qreal m_phase = 0.0;  // breathing phase while transcribing
     bool m_recording = true;
 };
 
