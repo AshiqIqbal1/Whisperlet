@@ -138,7 +138,6 @@ MainWindow::MainWindow(QWidget *parent)
                 // is what made this feel like it asks "every single time".
                 if (!m_askedForAccessibility) {
                     m_askedForAccessibility = true;
-                    TextInjector::requestPermission();
                     promptForAccessibility();
                 }
             }
@@ -191,9 +190,19 @@ MainWindow::MainWindow(QWidget *parent)
             watchForAccessibility();
     } else {
         const QString savedCombo = settings.value(QStringLiteral("globalHotkey")).toString();
-        const QKeySequence combo = savedCombo.isEmpty()
+        QKeySequence combo = savedCombo.isEmpty()
             ? GlobalHotkey::defaultSequence()
             : QKeySequence(savedCombo, QKeySequence::PortableText);
+
+        // Repair shortcuts saved before we validated them. Shift plus a
+        // letter is just a capital letter, so it fires while typing.
+        const Qt::KeyboardModifiers mods =
+            combo.isEmpty() ? Qt::NoModifier : combo[0].keyboardModifiers();
+        if (!(mods & (Qt::ControlModifier | Qt::AltModifier | Qt::MetaModifier))) {
+            combo = GlobalHotkey::defaultSequence();
+            settings.setValue(QStringLiteral("globalHotkey"),
+                              combo.toString(QKeySequence::PortableText));
+        }
         if (!m_hotkey->setSequence(combo) && !m_hotkey->setSequence(GlobalHotkey::defaultSequence()))
             flashStatus(tr("Global hotkey unavailable (in use by another app)"));
     }
@@ -414,7 +423,10 @@ void MainWindow::watchForAccessibility()
         return; // already waiting
 
     flashStatus(tr("Shortcut needs Accessibility permission"));
-    promptForAccessibility();
+    if (!m_askedForAccessibility) {
+        m_askedForAccessibility = true;
+        promptForAccessibility();
+    }
 
     // The permission is granted outside our process, and macOS gives no
     // notification for it, so poll until the tap registers. Cheap, and it
@@ -449,8 +461,12 @@ void MainWindow::promptForAccessibility()
     box.addButton(tr("Later"), QMessageBox::RejectRole);
     box.exec();
 
-    if (box.clickedButton() == openBtn)
+    if (box.clickedButton() == openBtn) {
+        // requestPermission() is what registers us in the Accessibility
+        // list; openPermissionSettings() then takes the user straight there.
+        TextInjector::requestPermission();
         TextInjector::openPermissionSettings();
+    }
 }
 
 bool MainWindow::keepAudio() const

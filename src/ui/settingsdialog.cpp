@@ -316,9 +316,16 @@ void SettingsDialog::onHotkeyEdited()
     if (seq == m_hotkey->sequence())
         return;
 
-    // A global hotkey without modifiers would swallow plain typing systemwide.
-    if (seq[0].keyboardModifiers() == Qt::NoModifier) {
-        m_hotkeyStatus->setText(tr("⚠ Needs at least one modifier key (Ctrl/Cmd/Alt/Shift)."));
+    // A global shortcut fires no matter what you are doing, so it has to be
+    // something you would never type by accident. Shift plus a character is
+    // just a capital letter: it would start recording mid sentence.
+    const Qt::KeyboardModifiers mods = seq[0].keyboardModifiers();
+    const bool hasRealModifier = mods & (Qt::ControlModifier | Qt::AltModifier | Qt::MetaModifier);
+    if (!hasRealModifier) {
+        m_hotkeyStatus->setText(mods == Qt::NoModifier
+            ? tr("Needs a modifier key. Try Ctrl, Cmd or Alt with a letter.")
+            : tr("Shift and a letter is just a capital letter, so it would fire "
+                 "while you type. Add Ctrl, Cmd or Alt."));
         m_hotkeyEdit->setKeySequence(m_hotkey->sequence());
         return;
     }
