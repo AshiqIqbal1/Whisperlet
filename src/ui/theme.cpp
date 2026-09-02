@@ -135,15 +135,10 @@ QScrollArea, #scrollBody { background: transparent; border: none; }
 
 QScrollBar:vertical {
     background: transparent;
-    width: 10px;
-    margin: 2px;
+    width: 0px;
+    margin: 0px;
 }
-QScrollBar::handle:vertical {
-    background: #34343C;
-    border-radius: 4px;
-    min-height: 32px;
-}
-QScrollBar::handle:vertical:hover { background: #45454F; }
+QScrollBar::handle:vertical { background: transparent; }
 QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0; }
 QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical { background: none; }
 

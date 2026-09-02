@@ -180,7 +180,7 @@ QPushButton:disabled { color: #5E5E66; background: #222226; }
             QSettings s;
             s.setValue(QStringLiteral("hotkeyMode"), QStringLiteral("tap"));
             s.setValue(QStringLiteral("modTapKey"), int(key));
-            m_hotkeyStatus->setText(tr("Tap %1 on its own to start/stop — active when "
+            m_hotkeyStatus->setText(tr("Tap %1 on its own to start and stop. Active when "
                                        "you close Settings. On macOS this needs the "
                                        "Accessibility permission.")
                                         .arg(m_hotkey->comboLabel()));
@@ -221,7 +221,7 @@ QPushButton:disabled { color: #5E5E66; background: #222226; }
         auto *permRow = new QHBoxLayout;
         permRow->setSpacing(10);
 
-        auto *warn = new QLabel(tr("Accessibility access is off — dictated text is "
+        auto *warn = new QLabel(tr("Accessibility access is off, so dictated text is "
                                    "copied to the clipboard instead of typed."), this);
         warn->setObjectName(QStringLiteral("cardMeta"));
         warn->setWordWrap(true);
@@ -314,7 +314,7 @@ void SettingsDialog::onHotkeyEdited()
         QSettings s;
         s.setValue(QStringLiteral("hotkeyMode"), QStringLiteral("combo"));
         s.setValue(QStringLiteral("globalHotkey"), seq.toString(QKeySequence::PortableText));
-        m_hotkeyStatus->setText(tr("Shortcut set to %1 — active when you close Settings.")
+        m_hotkeyStatus->setText(tr("Shortcut set to %1. Active when you close Settings.")
                                     .arg(m_hotkey->comboLabel()));
     } else {
         m_hotkeyStatus->setText(tr("⚠ That key can't be used as a global shortcut. Kept %1.")

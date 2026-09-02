@@ -36,6 +36,7 @@
 #include <QMimeData>
 #include <QPushButton>
 #include <QScrollArea>
+#include <QScrollBar>
 #include <QSettings>
 #include <QStatusBar>
 #include <QTimer>
@@ -130,7 +131,7 @@ MainWindow::MainWindow(QWidget *parent)
             } else {
                 // The text is never lost: clipboard first, then explain once.
                 QGuiApplication::clipboard()->setText(text);
-                flashStatus(tr("Copied to clipboard — Accessibility permission needed to type"));
+                flashStatus(tr("Copied to clipboard. Accessibility permission needed to type."));
 
                 // Ask at most once per run; re-prompting on every dictation
                 // is what made this feel like it asks "every single time".
@@ -159,7 +160,7 @@ MainWindow::MainWindow(QWidget *parent)
         }
         persist();
         // Show the real timing so slowness is diagnosable, not mysterious.
-        flashStatus(tr("Done — transcribed in %1s")
+        flashStatus(tr("Done in %1s")
                         .arg(m_engine->lastTranscribeMs() / 1000.0, 0, 'f', 1));
     });
 
@@ -268,6 +269,11 @@ QWidget *MainWindow::buildList()
     scroll->setWidgetResizable(true);
     scroll->setFrameShape(QFrame::NoFrame);
     scroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    // No visible scrollbar: the list still scrolls by wheel/trackpad, it
+    // just doesn't put a rail down the side of a narrow window.
+    scroll->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+
+    m_scroll = scroll;
 
     auto *body = new QWidget(scroll);
     body->setObjectName(QStringLiteral("scrollBody"));
@@ -416,7 +422,7 @@ void MainWindow::openSettings()
         purgeStoredAudio(); // user turned keeping off — clear what's stored
 
     if (!m_hotkey->resume())
-        flashStatus(tr("Shortcut %1 is in use by another app — pick a different one")
+        flashStatus(tr("Shortcut %1 is in use by another app. Pick a different one.")
                         .arg(m_hotkey->comboLabel()));
     refreshHint(); // combo may have changed
 }
@@ -433,7 +439,7 @@ bool MainWindow::ensureModelReady()
     if (m_models->isDownloaded(id))
         return true;
 
-    flashStatus(tr("Model \"%1\" is not downloaded yet — opening Settings").arg(id));
+    flashStatus(tr("Model \"%1\" is not downloaded yet. Opening Settings.").arg(id));
     openSettings();
     return m_models->isDownloaded(m_models->activeModelId());
 }
@@ -553,6 +559,11 @@ void MainWindow::addCard(const Transcript &t, bool atTop)
     const int insertPos = atTop ? 1 : m_listLayout->count() - 1; // slot 0 is the empty state
     m_listLayout->insertWidget(insertPos, card);
     atTop ? m_cards.prepend(card) : m_cards.append(card);
+
+    // New transcripts land at the top, so bring the list back up to show
+    // them without the user reaching for a (now invisible) scrollbar.
+    if (atTop && m_scroll)
+        m_scroll->verticalScrollBar()->setValue(0);
 
     refreshEmptyState();
 }

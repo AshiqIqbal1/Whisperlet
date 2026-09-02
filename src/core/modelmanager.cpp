@@ -126,7 +126,7 @@ void ModelManager::download(const QString &id)
             const QString got = QString::fromLatin1(it->hash->result().toHex());
             if (info && !info->sha256.isEmpty() && got != info->sha256) {
                 ok = false;
-                error = tr("Checksum mismatch — the downloaded file does not match "
+                error = tr("Checksum mismatch. The downloaded file does not match "
                            "the published model. It was discarded; try again.");
             }
         }

@@ -16,6 +16,7 @@ class GlobalHotkey;
 class ModelManager;
 class QLabel;
 class QLineEdit;
+class QScrollArea;
 class QMediaPlayer;
 class QAudioOutput;
 class QTimer;
@@ -73,6 +74,7 @@ private:
     // --- ui ---
     QLineEdit    *m_search = nullptr;
     QVBoxLayout  *m_listLayout = nullptr;
+    QScrollArea  *m_scroll = nullptr;
     QWidget      *m_emptyState = nullptr;
     RecordButton *m_record = nullptr;
     QLabel       *m_status = nullptr;
