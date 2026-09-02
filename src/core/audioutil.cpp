@@ -5,12 +5,16 @@
 
 namespace {
 
+// MSVC doesn't define M_PI without _USE_MATH_DEFINES; use our own constant
+// rather than depend on a platform-specific macro.
+constexpr double kPi = 3.14159265358979323846;
+
 // 4th-order Butterworth low-pass (two cascaded biquads), applied in place.
 // Downsampling without this aliases everything above the new Nyquist back
 // into the speech band — the classic "underwater/garbled" recording.
 void lowPass(std::vector<float> &samples, double srcRate, double cutoffHz)
 {
-    const double w0 = 2.0 * M_PI * cutoffHz / srcRate;
+    const double w0 = 2.0 * kPi * cutoffHz / srcRate;
     const double cosw = std::cos(w0), sinw = std::sin(w0);
 
     // Q values for a 4th-order Butterworth split into two biquads.
@@ -34,7 +38,7 @@ void lowPass(std::vector<float> &samples, double srcRate, double cutoffHz)
 // and mains hum below the speech band.
 void highPass(std::vector<float> &samples, double rate, double cutoffHz)
 {
-    const double w0 = 2.0 * M_PI * cutoffHz / rate;
+    const double w0 = 2.0 * kPi * cutoffHz / rate;
     const double cosw = std::cos(w0), sinw = std::sin(w0);
     const double alpha = sinw / (2.0 * 0.70710678); // Q = 1/sqrt(2)
     const double b0 = (1.0 + cosw) / 2.0, b1 = -(1.0 + cosw), b2 = b0;
