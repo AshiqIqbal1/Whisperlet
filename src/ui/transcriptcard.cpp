@@ -79,20 +79,20 @@ TranscriptCard::TranscriptCard(const Transcript &data, QWidget *parent)
 
     footer->addStretch(1);
 
-    auto *play = makeAction(Icons::Play, tr("Play audio"));
-    play->setObjectName(QStringLiteral("playBtn"));
-    play->setIcon(Icons::icon(Icons::Play, Qt::white, 16));
-    play->setFixedSize(28, 28);
-    connect(play, &QToolButton::clicked, this, [this] { emit playRequested(m_data.id); });
-    footer->addWidget(play);
+    m_play = makeAction(Icons::Play, tr("Play audio"));
+    m_play->setObjectName(QStringLiteral("playBtn"));
+    m_play->setIcon(Icons::icon(Icons::Play, Qt::white, 16));
+    m_play->setFixedSize(28, 28);
+    connect(m_play, &QToolButton::clicked, this, [this] { emit playRequested(m_data.id); });
+    footer->addWidget(m_play);
 
     auto *copy = makeAction(Icons::Copy, tr("Copy text"));
     connect(copy, &QToolButton::clicked, this, [this] { emit copyRequested(m_data.id); });
     footer->addWidget(copy);
 
-    auto *retry = makeAction(Icons::Retry, tr("Transcribe again"));
-    connect(retry, &QToolButton::clicked, this, [this] { emit retryRequested(m_data.id); });
-    footer->addWidget(retry);
+    m_retry = makeAction(Icons::Retry, tr("Transcribe again"));
+    connect(m_retry, &QToolButton::clicked, this, [this] { emit retryRequested(m_data.id); });
+    footer->addWidget(m_retry);
 
     auto *del = makeAction(Icons::Trash, tr("Delete"), /*danger=*/true);
     connect(del, &QToolButton::clicked, this, [this] { emit deleteRequested(m_data.id); });
@@ -140,6 +140,16 @@ void TranscriptCard::toggleExpanded()
 {
     m_expanded = !m_expanded;
     applyText();
+}
+
+void TranscriptCard::setAudioAvailable(bool available)
+{
+    // Hidden rather than disabled: a greyed-out button on every card would
+    // just be noise once audio is discarded by default.
+    if (m_play)
+        m_play->setVisible(available);
+    if (m_retry)
+        m_retry->setVisible(available);
 }
 
 bool TranscriptCard::matches(const QString &needle) const

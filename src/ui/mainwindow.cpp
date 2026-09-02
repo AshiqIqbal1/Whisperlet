@@ -358,6 +358,19 @@ QWidget *MainWindow::buildFooter()
     return wrap;
 }
 
+bool MainWindow::keepAudio() const
+{
+    return QSettings().value(QStringLiteral("keepAudio"), false).toBool();
+}
+
+void MainWindow::purgeStoredAudio()
+{
+    for (auto *card : std::as_const(m_cards)) {
+        AudioClipStore::remove(card->data().id);
+        card->setAudioAvailable(false);
+    }
+}
+
 void MainWindow::openSettings()
 {
     // Release the OS hotkey registration while the dialog is open. A
@@ -369,6 +382,9 @@ void MainWindow::openSettings()
     m_hotkey->suspend();
     SettingsDialog dialog(m_models, m_hotkey, this);
     dialog.exec();
+    if (!keepAudio())
+        purgeStoredAudio(); // user turned keeping off — clear what's stored
+
     if (!m_hotkey->resume())
         flashStatus(tr("Shortcut %1 is in use by another app — pick a different one")
                         .arg(m_hotkey->comboLabel()));
@@ -447,16 +463,19 @@ void MainWindow::runTranscription(std::vector<float> samples, int durationSec,
         ? QUuid::createUuid().toString(QUuid::WithoutBraces).left(8)
         : clipId;
 
-    if (clipId.isEmpty()) {
+    // Audio is a means to the transcript: by default it's discarded once the
+    // text exists. Keeping it is opt-in, and only then can a card offer play
+    // and re-transcribe.
+    if (clipId.isEmpty() && keepAudio()) {
         // Native-rate audio when we have it (fresh recording), else the
         // 16kHz copy (a decoded dropped file).
-        if (!m_pendingClipAudio.empty()) {
+        if (!m_pendingClipAudio.empty())
             AudioClipStore::save(id, m_pendingClipAudio, m_pendingClipRate);
-            m_pendingClipAudio.clear();
-        } else {
+        else
             AudioClipStore::save(id, samples, AudioUtil::kWhisperRate);
-        }
     }
+    m_pendingClipAudio.clear();
+    m_pendingClipAudio.shrink_to_fit(); // don't hold a 48kHz buffer until the next take
 
     const QString modelPath = m_models->localPath(m_models->activeModelId());
 
@@ -498,6 +517,8 @@ void MainWindow::addCard(const Transcript &t, bool atTop)
     });
     connect(card, &TranscriptCard::retryRequested, this, &MainWindow::retranscribe);
     connect(card, &TranscriptCard::playRequested, this, &MainWindow::playClip);
+
+    card->setAudioAvailable(AudioClipStore::exists(t.id));
 
     const int insertPos = atTop ? 1 : m_listLayout->count() - 1; // slot 0 is the empty state
     m_listLayout->insertWidget(insertPos, card);

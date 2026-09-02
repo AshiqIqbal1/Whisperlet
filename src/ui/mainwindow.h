@@ -58,6 +58,8 @@ private:
                           const QString &clipId, bool dictated);
 
     bool ensureModelReady(); // downloaded? if not, nudges user to Settings
+    bool keepAudio() const;  // user opted to retain clips after transcription
+    void purgeStoredAudio();
     void refreshHint();
     void addCard(const Transcript &t, bool atTop);
     void removeTranscript(const QString &id);

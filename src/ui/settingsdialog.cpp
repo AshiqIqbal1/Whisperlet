@@ -212,6 +212,16 @@ QPushButton:disabled { color: #5E5E66; background: #222226; }
     });
     layout->addWidget(pasteBox);
 
+    auto *keepAudioBox = new QCheckBox(tr("Keep recordings after transcribing"), this);
+    keepAudioBox->setChecked(QSettings().value(QStringLiteral("keepAudio"), false).toBool());
+    keepAudioBox->setToolTip(tr("Off by default: the audio is deleted once the transcript "
+                                "exists. Turn on to replay a recording or run it again "
+                                "through a different model — clips are a few MB per minute."));
+    connect(keepAudioBox, &QCheckBox::toggled, this, [](bool on) {
+        QSettings().setValue(QStringLiteral("keepAudio"), on);
+    });
+    layout->addWidget(keepAudioBox);
+
     layout->addStretch(1);
 
     auto *buttons = new QDialogButtonBox(QDialogButtonBox::Close, this);

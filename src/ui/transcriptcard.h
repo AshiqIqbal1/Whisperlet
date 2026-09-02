@@ -30,6 +30,10 @@ public:
     const Transcript &data() const { return m_data; }
     bool matches(const QString &needle) const;
 
+    // Play / re-transcribe only work while the clip's audio is on disk;
+    // audio is discarded after transcription unless the user opts to keep it.
+    void setAudioAvailable(bool available);
+
 signals:
     void playRequested(const QString &id);
     void copyRequested(const QString &id);
@@ -50,6 +54,8 @@ private:
     bool         m_expanded = false;
     QLabel      *m_text = nullptr;
     QPushButton *m_showMore = nullptr;
+    QToolButton *m_play = nullptr;
+    QToolButton *m_retry = nullptr;
 };
 
 #endif // TRANSCRIPTCARD_H
