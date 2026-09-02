@@ -85,6 +85,7 @@ private:
 
     std::unique_ptr<WhisperEngine> m_engine;
     QFutureWatcher<QString> m_transcribeWatcher;
+    QFutureWatcher<bool> m_preloadWatcher;
     RecordingPill *m_pill = nullptr;
     bool m_transcribing = false;
     bool m_dictating = false; // current recording started via hotkey, away from the app

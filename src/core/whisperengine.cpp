@@ -2,6 +2,8 @@
 
 #include <whisper.h>
 
+#include <QDebug>
+#include <QElapsedTimer>
 #include <QThread>
 
 WhisperEngine::~WhisperEngine()
@@ -12,6 +14,9 @@ WhisperEngine::~WhisperEngine()
 
 bool WhisperEngine::loadModel(const QString &path)
 {
+    QElapsedTimer clock;
+    clock.start();
+
     if (m_ctx) {
         whisper_free(m_ctx);
         m_ctx = nullptr;
@@ -27,6 +32,8 @@ bool WhisperEngine::loadModel(const QString &path)
     }
 
     m_loadedPath = path;
+    m_lastLoadMs = clock.elapsed();
+    qInfo() << "[perf] model load" << path.section('/', -1) << m_lastLoadMs << "ms";
     return true;
 }
 
@@ -58,10 +65,17 @@ QString WhisperEngine::transcribe(const std::vector<float> &samples, const QStri
     const int threads = qBound(1, QThread::idealThreadCount() - 1, 8);
     params.n_threads = threads;
 
+    QElapsedTimer clock;
+    clock.start();
+
     if (whisper_full(m_ctx, params, samples.data(), static_cast<int>(samples.size())) != 0) {
         m_lastError = QStringLiteral("whisper_full failed");
         return QString();
     }
+
+    m_lastTranscribeMs = clock.elapsed();
+    qInfo() << "[perf] transcribe" << (samples.size() / 16000.0) << "s of audio in"
+            << m_lastTranscribeMs << "ms on" << threads << "threads";
 
     QString text;
     const int segments = whisper_full_n_segments(m_ctx);

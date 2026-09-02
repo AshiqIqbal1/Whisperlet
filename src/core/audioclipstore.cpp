@@ -61,8 +61,13 @@ bool AudioClipStore::save(const QString &id, const std::vector<float> &samples)
     file.write("data", 4);
     out << dataBytes;
 
-    for (float s : samples)
-        out << qint16(std::clamp(s, -1.0f, 1.0f) * 32767.0f);
+    // Convert into one buffer and write once — pushing samples through
+    // QDataStream one at a time costs hundreds of ms per minute of audio.
+    QByteArray pcm(qsizetype(samples.size()) * qsizetype(sizeof(qint16)), Qt::Uninitialized);
+    qint16 *dst = reinterpret_cast<qint16 *>(pcm.data());
+    for (size_t i = 0; i < samples.size(); ++i)
+        qToLittleEndian<qint16>(qint16(std::clamp(samples[i], -1.0f, 1.0f) * 32767.0f), &dst[i]);
+    file.write(pcm);
 
     return true;
 }

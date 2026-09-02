@@ -33,6 +33,17 @@ else()
     set(GGML_METAL OFF CACHE BOOL "" FORCE)
 endif()
 
+# Windows binaries are DISTRIBUTED (built on CI, run elsewhere), so never
+# bake the build machine's CPU flags in (GGML_NATIVE). Pin an AVX2+FMA
+# baseline instead: fast SIMD kernels, runs on every x86-64 CPU since ~2013.
+if(WIN32)
+    set(GGML_NATIVE OFF CACHE BOOL "" FORCE)
+    set(GGML_AVX ON CACHE BOOL "" FORCE)
+    set(GGML_AVX2 ON CACHE BOOL "" FORCE)
+    set(GGML_FMA ON CACHE BOOL "" FORCE)
+    set(GGML_F16C ON CACHE BOOL "" FORCE)
+endif()
+
 FetchContent_Declare(
     whisper_cpp
     GIT_REPOSITORY https://github.com/ggml-org/whisper.cpp.git

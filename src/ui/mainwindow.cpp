@@ -147,7 +147,9 @@ MainWindow::MainWindow(QWidget *parent)
             addCard({clipId, text, QDateTime::currentDateTime(), durationSec}, true);
         }
         persist();
-        flashStatus(tr("Done"));
+        // Show the real timing so slowness is diagnosable, not mysterious.
+        flashStatus(tr("Done — transcribed in %1s")
+                        .arg(m_engine->lastTranscribeMs() / 1000.0, 0, 'f', 1));
     });
 
     // Global hotkey — works even when another app has focus. Combo is
@@ -184,6 +186,25 @@ MainWindow::MainWindow(QWidget *parent)
         addCard(t, false);
 
     refreshEmptyState();
+
+    // Preload the active model in the background. Without this the first
+    // transcription silently pays the full model load (large-v3-turbo is a
+    // 1.6GB read — many seconds on a laptop) and looks like the app hung.
+    // m_transcribing gates transcription until the engine is ready.
+    connect(&m_preloadWatcher, &QFutureWatcher<bool>::finished, this, [this] {
+        m_transcribing = false;
+        if (m_preloadWatcher.result())
+            flashStatus(tr("Model ready (loaded in %1s)")
+                            .arg(m_engine->lastLoadMs() / 1000.0, 0, 'f', 1));
+    });
+    if (m_models->isDownloaded(m_models->activeModelId())) {
+        const QString path = m_models->localPath(m_models->activeModelId());
+        m_transcribing = true;
+        flashStatus(tr("Loading model…"));
+        WhisperEngine *engine = m_engine.get();
+        m_preloadWatcher.setFuture(QtConcurrent::run(
+            [engine, path] { return engine->loadModel(path); }));
+    }
 }
 
 MainWindow::~MainWindow()
@@ -193,10 +214,11 @@ MainWindow::~MainWindow()
 
 void MainWindow::closeEvent(QCloseEvent *event)
 {
-    if (m_transcribing) {
-        // Let the worker finish writing before the engine is torn down.
+    // Let workers finish before the engine is torn down.
+    if (m_preloadWatcher.isRunning())
+        m_preloadWatcher.waitForFinished();
+    if (m_transcribeWatcher.isRunning())
         m_transcribeWatcher.waitForFinished();
-    }
     persist();
     QMainWindow::closeEvent(event);
 }
@@ -372,7 +394,10 @@ bool MainWindow::ensureModelReady()
 void MainWindow::toggleRecording()
 {
     if (m_transcribing) {
-        flashStatus(tr("Still transcribing the previous recording…"));
+        m_dictating = false; // this attempt is over; don't leak into the next one
+        flashStatus(m_preloadWatcher.isRunning()
+                        ? tr("Model still loading…")
+                        : tr("Still transcribing the previous recording…"));
         return;
     }
 

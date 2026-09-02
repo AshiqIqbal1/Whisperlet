@@ -34,10 +34,16 @@ public:
 
     QString lastError() const { return m_lastError; }
 
+    // Perf instrumentation: how long the most recent operations took.
+    qint64 lastLoadMs() const { return m_lastLoadMs; }
+    qint64 lastTranscribeMs() const { return m_lastTranscribeMs; }
+
 private:
     whisper_context *m_ctx = nullptr;
     QString m_loadedPath;
     QString m_lastError;
+    qint64 m_lastLoadMs = 0;
+    qint64 m_lastTranscribeMs = 0;
 };
 
 #endif // WHISPERENGINE_H
