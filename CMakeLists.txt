@@ -47,6 +47,22 @@ if(WIN32)
     set(GGML_AVX2 ON CACHE BOOL "" FORCE)
     set(GGML_FMA ON CACHE BOOL "" FORCE)
     set(GGML_F16C ON CACHE BOOL "" FORCE)
+
+    # GPU on Windows. macOS gets Metal, and without an equivalent the same
+    # model runs an order of magnitude slower here on CPU alone. Vulkan is
+    # the portable choice: Intel, AMD and NVIDIA drivers all ship it, unlike
+    # CUDA which would be NVIDIA only and a huge toolchain.
+    #
+    # Enabled only when the SDK is present at build time, and ggml still
+    # falls back to CPU at runtime on a machine with no Vulkan device, so
+    # neither a plain local build nor an old GPU is left broken.
+    find_package(Vulkan QUIET)
+    if(Vulkan_FOUND)
+        message(STATUS "Vulkan found: enabling GPU acceleration for Windows")
+        set(GGML_VULKAN ON CACHE BOOL "" FORCE)
+    else()
+        message(STATUS "Vulkan SDK not found: Windows build will be CPU only")
+    endif()
 endif()
 
 FetchContent_Declare(

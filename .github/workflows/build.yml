@@ -68,6 +68,16 @@ jobs:
       - name: Set up MSVC
         uses: ilammy/msvc-dev-cmd@v1
 
+      # GPU acceleration for the shipped Windows build. The SDK is only
+      # needed to compile the shaders; users need nothing beyond the normal
+      # graphics driver, and the build falls back to CPU where there is no
+      # Vulkan device.
+      - name: Install Vulkan SDK
+        uses: jakoch/install-vulkan-sdk-action@v1
+        with:
+          install_runtime: false
+          cache: true
+
       - name: Configure
         run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
 
