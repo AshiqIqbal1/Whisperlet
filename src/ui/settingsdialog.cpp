@@ -250,6 +250,16 @@ QPushButton:disabled { color: #5E5E66; background: #222226; }
     }
 #endif
 
+    auto *denoiseBox = new QCheckBox(tr("Reduce background noise"), this);
+    denoiseBox->setChecked(QSettings().value(QStringLiteral("suppressNoise"), true).toBool());
+    denoiseBox->setToolTip(tr("Estimates steady background sound (fans, air conditioning, "
+                              "traffic) from the gaps between words and subtracts it before "
+                              "transcribing. Improves accuracy in a noisy room."));
+    connect(denoiseBox, &QCheckBox::toggled, this, [](bool on) {
+        QSettings().setValue(QStringLiteral("suppressNoise"), on);
+    });
+    layout->addWidget(denoiseBox);
+
     auto *keepAudioBox = new QCheckBox(tr("Keep recordings after transcribing"), this);
     keepAudioBox->setChecked(QSettings().value(QStringLiteral("keepAudio"), false).toBool());
     keepAudioBox->setToolTip(tr("Off by default: the audio is deleted once the transcript "

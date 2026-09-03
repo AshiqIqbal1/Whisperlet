@@ -28,6 +28,9 @@ bool WhisperEngine::loadModel(const QString &path)
     }
 
     whisper_context_params cparams = whisper_context_default_params();
+    // Flash attention is a large speedup on the bigger models for no
+    // meaningful quality cost, and it lowers memory traffic on CPU too.
+    cparams.flash_attn = true;
     m_ctx = whisper_init_from_file_with_params(path.toUtf8().constData(), cparams);
 
     if (!m_ctx) {
@@ -79,7 +82,9 @@ QString WhisperEngine::transcribe(const std::vector<float> &samples, const QStri
     params.detect_language = language.isEmpty();
 
     // Leave one core free for the UI thread; whisper.cpp saturates the rest.
-    const int threads = qBound(1, QThread::idealThreadCount() - 1, 8);
+    // Leave one core for the UI, but do not cap so low that a many-core
+    // laptop transcribes at the speed of a four-core one.
+    const int threads = qBound(1, QThread::idealThreadCount() - 1, 12);
     params.n_threads = threads;
 
     QElapsedTimer clock;

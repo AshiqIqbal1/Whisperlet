@@ -159,10 +159,16 @@ std::vector<float> AudioRecorder::stop()
     m_source = nullptr;
     m_device = nullptr;
 
+    const int nativeRate = m_format.sampleRate();
+
+    // Strip the steady background first, so the AGC below measures speech
+    // against a cleaned floor instead of amplifying room noise with it.
+    if (QSettings().value(QStringLiteral("suppressNoise"), true).toBool())
+        AudioUtil::denoise(m_samples, nativeRate);
+
     // Condition ONCE at the native rate — high-pass + speech-level AGC +
     // limiter — so any mic at any system gain gives the same healthy signal
     // with no manual OS settings.
-    const int nativeRate = m_format.sampleRate();
     AudioUtil::condition(m_samples, nativeRate);
 
     // Keep the full-quality version for playback; hand the model its 16kHz.

@@ -607,6 +607,16 @@ void MainWindow::runTranscription(std::vector<float> samples, int durationSec,
     m_pendingClipAudio.clear();
     m_pendingClipAudio.shrink_to_fit(); // don't hold a 48kHz buffer until the next take
 
+    // Whisper costs time per second of audio, so pauses are pure waste.
+    // Trimming happens here rather than in the recorder so re-transcribing a
+    // stored clip gets the same benefit.
+    const size_t before = samples.size();
+    samples = AudioUtil::trimSilence(samples, AudioUtil::kWhisperRate);
+    if (samples.size() < before) {
+        qInfo() << "[perf] trimmed" << (before - samples.size()) / double(AudioUtil::kWhisperRate)
+                << "s of silence";
+    }
+
     const QString modelPath = m_models->localPath(m_models->activeModelId());
 
     QVariantMap job;

@@ -135,3 +135,214 @@ void AudioUtil::condition(std::vector<float> &samples, int rate)
     for (float &s : samples)
         s = std::clamp(float(s * gain), -0.98f, 0.98f);
 }
+
+namespace {
+
+// Iterative radix-2 FFT, in place, on interleaved re/im pairs. Small and
+// self contained: pulling in a DSP library for one transform would be a
+// much larger dependency than the twenty lines it replaces.
+void fft(std::vector<float> &re, std::vector<float> &im, bool inverse)
+{
+    const size_t n = re.size();
+    for (size_t i = 1, j = 0; i < n; ++i) {
+        size_t bit = n >> 1;
+        for (; j & bit; bit >>= 1)
+            j ^= bit;
+        j ^= bit;
+        if (i < j) {
+            std::swap(re[i], re[j]);
+            std::swap(im[i], im[j]);
+        }
+    }
+
+    for (size_t len = 2; len <= n; len <<= 1) {
+        const double ang = 2.0 * kPi / double(len) * (inverse ? 1.0 : -1.0);
+        const double wr = std::cos(ang), wi = std::sin(ang);
+        for (size_t i = 0; i < n; i += len) {
+            double cr = 1.0, ci = 0.0;
+            for (size_t k = 0; k < len / 2; ++k) {
+                const double ur = re[i + k], ui = im[i + k];
+                const double vr = re[i + k + len / 2] * cr - im[i + k + len / 2] * ci;
+                const double vi = re[i + k + len / 2] * ci + im[i + k + len / 2] * cr;
+                re[i + k] = float(ur + vr);
+                im[i + k] = float(ui + vi);
+                re[i + k + len / 2] = float(ur - vr);
+                im[i + k + len / 2] = float(ui - vi);
+                const double nr = cr * wr - ci * wi;
+                ci = cr * wi + ci * wr;
+                cr = nr;
+            }
+        }
+    }
+
+    if (inverse) {
+        for (size_t i = 0; i < n; ++i) {
+            re[i] /= float(n);
+            im[i] /= float(n);
+        }
+    }
+}
+
+} // namespace
+
+void AudioUtil::denoise(std::vector<float> &samples, int rate)
+{
+    // Frame of about 42ms with 50% overlap: long enough to resolve the
+    // noise spectrum, short enough that speech stays stationary within it.
+    size_t frame = 1024;
+    while (frame < size_t(rate) / 32)
+        frame <<= 1;
+    const size_t hop = frame / 2;
+
+    if (samples.size() < frame * 4)
+        return; // too short to estimate anything reliable
+
+    const size_t frames = (samples.size() - frame) / hop + 1;
+    const size_t bins = frame / 2 + 1;
+
+    // Hann window, and the matching normalisation for overlap-add.
+    std::vector<float> window(frame);
+    for (size_t i = 0; i < frame; ++i)
+        window[i] = 0.5f * (1.0f - std::cos(2.0 * kPi * double(i) / double(frame - 1)));
+
+    // Pass one: magnitude spectrum of every frame, plus its total energy.
+    std::vector<std::vector<float>> mags(frames, std::vector<float>(bins));
+    std::vector<std::vector<float>> phaseRe(frames, std::vector<float>(bins));
+    std::vector<std::vector<float>> phaseIm(frames, std::vector<float>(bins));
+    std::vector<double> energy(frames, 0.0);
+
+    for (size_t f = 0; f < frames; ++f) {
+        std::vector<float> re(frame, 0.0f), im(frame, 0.0f);
+        for (size_t i = 0; i < frame; ++i)
+            re[i] = samples[f * hop + i] * window[i];
+
+        fft(re, im, false);
+
+        for (size_t b = 0; b < bins; ++b) {
+            const float m = std::sqrt(re[b] * re[b] + im[b] * im[b]);
+            mags[f][b] = m;
+            phaseRe[f][b] = re[b];
+            phaseIm[f][b] = im[b];
+            energy[f] += double(m) * double(m);
+        }
+    }
+
+    // Noise estimate: average the spectra of the quietest frames. Those are
+    // the gaps between words, which contain the background and nothing else.
+    std::vector<size_t> order(frames);
+    for (size_t i = 0; i < frames; ++i)
+        order[i] = i;
+    std::sort(order.begin(), order.end(),
+              [&energy](size_t a, size_t b) { return energy[a] < energy[b]; });
+
+    const size_t quiet = std::max<size_t>(1, frames / 5); // quietest 20%
+    std::vector<float> noise(bins, 0.0f);
+    for (size_t i = 0; i < quiet; ++i)
+        for (size_t b = 0; b < bins; ++b)
+            noise[b] += mags[order[i]][b];
+    for (size_t b = 0; b < bins; ++b)
+        noise[b] /= float(quiet);
+
+    // Subtract, keeping a floor so the result sounds attenuated rather than
+    // gated into robotic artefacts (musical noise).
+    constexpr float kOverSubtract = 2.0f; // how hard to cut the estimate
+    constexpr float kFloor = 0.08f;       // never below this fraction of input
+
+    std::vector<float> out(samples.size(), 0.0f);
+    std::vector<float> norm(samples.size(), 0.0f);
+
+    for (size_t f = 0; f < frames; ++f) {
+        std::vector<float> re(frame, 0.0f), im(frame, 0.0f);
+        for (size_t b = 0; b < bins; ++b) {
+            const float m = mags[f][b];
+            const float cleaned = std::max(m - kOverSubtract * noise[b], kFloor * m);
+            const float gain = m > 1e-9f ? cleaned / m : 0.0f;
+            re[b] = phaseRe[f][b] * gain;
+            im[b] = phaseIm[f][b] * gain;
+            // Mirror for the real-valued inverse transform.
+            if (b > 0 && b < frame / 2) {
+                re[frame - b] = re[b];
+                im[frame - b] = -im[b];
+            }
+        }
+
+        fft(re, im, true);
+
+        for (size_t i = 0; i < frame; ++i) {
+            out[f * hop + i] += re[i] * window[i];
+            norm[f * hop + i] += window[i] * window[i];
+        }
+    }
+
+    for (size_t i = 0; i < samples.size(); ++i)
+        if (norm[i] > 1e-6f)
+            samples[i] = out[i] / norm[i];
+}
+
+std::vector<float> AudioUtil::trimSilence(const std::vector<float> &samples, int rate)
+{
+    if (rate <= 0 || samples.empty())
+        return samples;
+
+    const size_t frame = size_t(rate) / 50; // 20ms
+    if (frame == 0 || samples.size() < frame * 4)
+        return samples;
+
+    const size_t frames = samples.size() / frame;
+    std::vector<double> rms(frames);
+    for (size_t f = 0; f < frames; ++f) {
+        double sum = 0.0;
+        for (size_t i = 0; i < frame; ++i) {
+            const double v = samples[f * frame + i];
+            sum += v * v;
+        }
+        rms[f] = std::sqrt(sum / double(frame));
+    }
+
+    std::vector<double> sorted = rms;
+    std::sort(sorted.begin(), sorted.end());
+    const double floorLevel = sorted[sorted.size() / 10];
+    const double speechLevel = sorted[sorted.size() * 9 / 10];
+
+    // If the loudest frames are barely above the quietest, this is either
+    // silence or uniform noise. Leave it alone rather than cutting blindly.
+    if (speechLevel < floorLevel * 2.0)
+        return samples;
+
+    const double threshold = std::max(floorLevel * 2.5, speechLevel * 0.06);
+
+    // Keep a little air around speech so words are not clipped, and allow a
+    // short pause through so sentences keep their rhythm.
+    const size_t pad = size_t(rate) / 10;          // 100ms either side
+    const size_t maxGap = size_t(rate) * 3 / 10;   // 300ms of kept pause
+
+    std::vector<float> out;
+    out.reserve(samples.size());
+
+    size_t runStart = 0;
+    bool inSilence = false;
+    for (size_t f = 0; f < frames; ++f) {
+        const bool speech = rms[f] > threshold;
+        if (!speech && !inSilence) {
+            inSilence = true;
+            runStart = f;
+        } else if (speech && inSilence) {
+            inSilence = false;
+            // Copy the silence run, shortened to maxGap (plus padding).
+            const size_t from = runStart * frame;
+            const size_t to = f * frame;
+            const size_t len = to - from;
+            const size_t keep = std::min(len, maxGap + pad * 2);
+            const size_t head = keep / 2;
+            out.insert(out.end(), samples.begin() + from, samples.begin() + from + head);
+            out.insert(out.end(), samples.begin() + to - (keep - head), samples.begin() + to);
+        }
+        if (speech) {
+            const size_t from = f * frame;
+            out.insert(out.end(), samples.begin() + from,
+                       samples.begin() + std::min(from + frame, samples.size()));
+        }
+    }
+
+    return out.empty() ? samples : out;
+}
