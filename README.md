@@ -2,69 +2,101 @@
 
 [![build](https://github.com/AshiqIqbal1/Whisperlet/actions/workflows/build.yml/badge.svg)](https://github.com/AshiqIqbal1/Whisperlet/actions/workflows/build.yml)
 
-Small desktop app for local speech-to-text. Hit record (or press the global
-hotkey), talk, and it transcribes with [whisper.cpp](https://github.com/ggml-org/whisper.cpp).
-You can also drag an audio file onto the window. Nothing gets uploaded
-anywhere, transcription runs on your CPU.
+Dictate anywhere on your machine. Press a shortcut, talk, press it again, and
+the text is typed straight into whatever you had focused: a chat box, an
+editor, a terminal. Transcription runs locally with
+[whisper.cpp](https://github.com/ggml-org/whisper.cpp), so no audio ever
+leaves the machine.
 
-Written in C++17 with Qt 6 Widgets. Same tree builds on macOS and Windows.
-
-Hotkey is Cmd+Shift+R on Mac, Ctrl+Shift+R on Windows. It works even when
-the app is in the background.
-
-## Models
-
-Pick a model in Settings. It gets downloaded from the
-[whisper.cpp HF repo](https://huggingface.co/ggerganov/whisper.cpp) the first
-time and cached in the app data folder.
-
-| Model | Size |
-|---|---|
-| Tiny | ~78 MB |
-| Base (default) | ~148 MB |
-| Small | ~488 MB |
-| Medium | ~1.5 GB |
-| Large v3 turbo | ~1.6 GB |
-
-Tiny is fine for quick notes. Small is the sweet spot if your machine can
-take it. Transcripts are kept as JSON, and the recorded audio is saved per
-transcript so you can replay it or re-run it later with a bigger model.
+C++17 and Qt 6. One tree builds for Windows and macOS.
 
 ## Download
 
 Prebuilt binaries are on the [releases page](https://github.com/AshiqIqbal1/Whisperlet/releases):
-a `.dmg` for macOS (Apple Silicon) and a `.zip` for Windows x64.
+a `.zip` for Windows x64 and a `.dmg` for macOS on Apple silicon. Each release
+also ships `SHA256SUMS.txt`.
 
-The binaries aren't code-signed, so the OS will complain the first time:
+Neither binary is code signed, so the OS warns on first run:
 
-- macOS: right-click the app, Open, then Open again in the dialog
-- Windows: SmartScreen popup, click "More info" then "Run anyway"
+- Windows: SmartScreen appears, choose More info then Run anyway
+- macOS: right click the app, Open, then Open again
+
+On macOS only, dictation needs Accessibility permission (Privacy & Security,
+then Accessibility) so the app can type into other applications. Windows
+needs no permission for this.
+
+## Using it
+
+Open Settings with the gear icon and download a model. Then pick a shortcut,
+either a key combination or a single tap of a right hand modifier key.
+
+Press the shortcut, a small capsule appears at the top of the screen showing
+that it is listening, and the dot moves with your voice. Click into any text
+field while it records. Press again and the transcript is typed there.
+
+You can also record with the button in the window, or drop an audio file
+(mp3, m4a, wav and anything else the platform decodes) onto it. Transcripts
+are searchable and kept between sessions. The recording itself is deleted
+once the text exists, unless you turn on "Keep recordings after transcribing",
+which also enables replay and re-running a clip through a different model.
+
+## Models
+
+| Model | Download | Notes |
+|---|---|---|
+| Tiny | 78 MB | fastest, least accurate, fine for quick notes |
+| Base | 148 MB | default |
+| Small | 488 MB | the sweet spot on a laptop |
+| Medium | 1.5 GB | slower, more accurate |
+| Large v3 turbo | 1.6 GB | best accuracy, heavy on modest hardware |
+
+Downloaded on demand from the
+[whisper.cpp Hugging Face repo](https://huggingface.co/ggerganov/whisper.cpp),
+verified against a pinned SHA256, and cached in the app data directory.
+
+## Audio handling
+
+Recording quality drives accuracy more than anything except model choice, so
+the app conditions every take automatically, with no settings to tune:
+
+- captures at the microphone's native rate, downsampling for the model only
+- 80 Hz high pass to remove rumble, hum and DC offset
+- background noise suppression by spectral subtraction, estimating the room
+  from the gaps between words (measured on a noisy test recording: 19 dB less
+  background, speech within 0.3 dB, SNR 18.6 dB to 37.7 dB)
+- automatic gain so a quiet microphone and a hot one both land at the same
+  level, then a limiter
+- silence trimmed before transcription, since whisper costs time per second
+  of audio and dictation is largely pauses
 
 ## Building
 
-You need CMake 3.19+, git, and Qt 6.5+ with the Widgets, Svg, Network,
-Multimedia and Concurrent modules. First configure clones whisper.cpp via
-FetchContent, so network is required once.
+Needs CMake 3.19+, git, and Qt 6.5+ with the Widgets, Svg, Network,
+Multimedia and Concurrent modules. The first configure clones whisper.cpp,
+so it needs network once.
 
 ```sh
 cmake --preset release
 cmake --build --preset release -j
 ```
 
-Or just open CMakeLists.txt in Qt Creator. If Qt isn't found, point CMake at
-it with `-DCMAKE_PREFIX_PATH=/path/to/Qt/6.x.x/<arch>`.
+Or open `CMakeLists.txt` in Qt Creator. If Qt is not found, point CMake at it
+with `-DCMAKE_PREFIX_PATH=/path/to/Qt/6.x.x/<arch>`.
 
-On Windows run windeployqt on the built exe if you want to move it to
-another machine. whisper.cpp is compiled CPU-only so the same setup works on
-both platforms; if you only care about Mac, set GGML_METAL to ON in
-CMakeLists.txt and it gets a lot faster.
+GPU acceleration is on by default where it is available: Metal on Apple
+silicon, and Vulkan on Windows when the Vulkan SDK is present at build time.
+Both fall back to CPU rather than failing.
 
-## Code layout
+On Windows, run `windeployqt` on the built exe before moving it to another
+machine.
+
+## Layout
 
 ```
-src/ui        window, transcript cards, record button, settings dialog
-src/core      whisper engine, model downloads, audio capture and storage
-src/platform  global hotkey (Carbon on Mac, RegisterHotKey on Windows)
+src/ui        window, transcript cards, recording pill, settings
+src/core      whisper engine, model downloads, audio capture and DSP
+src/platform  global shortcut, text injection, overlay window (per OS)
+tools         icon regeneration
 ```
 
 ## License

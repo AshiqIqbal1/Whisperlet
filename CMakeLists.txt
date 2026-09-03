@@ -14,11 +14,11 @@ find_package(Qt6 6.5 REQUIRED COMPONENTS Core Widgets Svg Network Multimedia Con
 qt_standard_project_setup()
 
 # ---------------------------------------------------------------------------
-# whisper.cpp — vendored via FetchContent, pinned to a tagged release so the
-# C API can't drift out from under mainwindow/whisperengine.
-# Metal/CUDA/BLAS backends are left off: CPU-only keeps the exact same build
-# working unmodified on the Windows laptop, at the cost of raw speed. Turn
-# GGML_METAL back on for Mac-only builds later if you want it faster.
+# whisper.cpp, vendored with FetchContent and pinned to a commit so the C API
+# cannot drift out from under whisperengine.
+#
+# Both platforms transcribe on the GPU: Metal on Apple silicon, Vulkan on
+# Windows. Each falls back to CPU when the hardware or SDK is missing.
 # ---------------------------------------------------------------------------
 include(FetchContent)
 
@@ -27,10 +27,9 @@ set(WHISPER_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
 set(WHISPER_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(GGML_BLAS OFF CACHE BOOL "" FORCE)
 
-# Metal on Apple Silicon: transcription runs on the GPU — several times
-# faster AND cheaper on battery than pegging the CPU cores (race-to-sleep).
-# Embedding the shader library keeps the .app self-contained. Windows stays
-# CPU-only; the tree still builds there unchanged.
+# Metal on Apple silicon: transcription runs on the GPU, which is several
+# times faster and cheaper on battery than pegging the CPU cores. Embedding
+# the shader library keeps the .app self contained.
 if(APPLE)
     set(GGML_METAL ON CACHE BOOL "" FORCE)
     set(GGML_METAL_EMBED_LIBRARY ON CACHE BOOL "" FORCE)
@@ -166,7 +165,7 @@ if(APPLE)
         MACOSX_BUNDLE_INFO_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/resources/Info.plist.in"
         MACOSX_BUNDLE_GUI_IDENTIFIER "com.ashiqiqbal.whisperlet"
         MACOSX_BUNDLE_BUNDLE_NAME "Whisperlet"
-        MACOSX_BUNDLE_SHORT_VERSION_STRING "0.3.0"
+        MACOSX_BUNDLE_SHORT_VERSION_STRING "0.7.1"
         MACOSX_BUNDLE_BUNDLE_VERSION "1"
         MACOSX_BUNDLE_ICON_FILE "whisperlet.icns"
     )

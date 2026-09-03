@@ -1,6 +1,5 @@
 #include "overlaywindow.h"
 
-#include <QDebug>
 #include <QWidget>
 
 #import <AppKit/AppKit.h>
@@ -46,7 +45,4 @@ void OverlayWindow::makeFloatingOverlay(QWidget *widget)
 
     // Never become key or main: the field being dictated into keeps focus.
     [window setHidesOnDeactivate:NO];
-
-    qInfo() << "[overlay] collectionBehavior=" << quint64([window collectionBehavior])
-            << "level=" << int([window level]);
 }

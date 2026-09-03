@@ -81,9 +81,8 @@ QString WhisperEngine::transcribe(const std::vector<float> &samples, const QStri
     params.language = language.isEmpty() ? "auto" : langUtf8.constData();
     params.detect_language = language.isEmpty();
 
-    // Leave one core free for the UI thread; whisper.cpp saturates the rest.
-    // Leave one core for the UI, but do not cap so low that a many-core
-    // laptop transcribes at the speed of a four-core one.
+    // Leave one core for the UI, but do not cap so low that a many core
+    // laptop transcribes at the speed of a four core one.
     const int threads = qBound(1, QThread::idealThreadCount() - 1, 12);
     params.n_threads = threads;
 

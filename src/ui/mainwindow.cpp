@@ -18,7 +18,6 @@
 #include "whisperengine.h"
 
 #include <QApplication>
-#include <QDebug>
 #include <QAudioDevice>
 #include <QAudioOutput>
 #include <QClipboard>
@@ -32,9 +31,10 @@
 #include <QLineEdit>
 #include <QMediaDevices>
 #include <QMediaPlayer>
+#include <QDebug>
 #include <QMenu>
-#include <QPermissions>
 #include <QMessageBox>
+#include <QPermissions>
 #include <QMimeData>
 #include <QPushButton>
 #include <QScrollArea>
