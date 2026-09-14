@@ -48,9 +48,10 @@ RecordingPill::RecordingPill(QWidget *parent)
         "color:#F5F5F7;font-size:16px;font-weight:600;background:transparent;"));
     layout->addWidget(m_text);
 
-    // Float over every Space and over fullscreen apps, so the pill is
-    // visible wherever the user is actually typing.
-    OverlayWindow::makeFloatingOverlay(this);
+    // Float over every desktop and over fullscreen apps, so the pill is
+    // visible wherever the user is actually typing. Done once, before the
+    // window is ever shown: see overlaywindow.h for why the timing matters.
+    OverlayWindow::configure(this);
 
     // Drives the dot's response to the voice. Only runs while on screen.
     m_animation = new QTimer(this);
@@ -93,25 +94,45 @@ void RecordingPill::showCentered()
 {
     adjustSize();
 
-    // Follow the user, not the app: place the pill on whichever screen the
-    // pointer is on. Pinning it to the primary screen made it appear on a
-    // display the user wasn't looking at.
-    QScreen *screen = QGuiApplication::screenAt(QCursor::pos());
-    if (!screen)
-        screen = QGuiApplication::primaryScreen();
-    if (screen) {
-        const QRect area = screen->availableGeometry();
-        move(area.center().x() - width() / 2, area.top() + 10);
-    }
+    // Prepare desktop membership while still hidden. On Windows this also
+    // discards the old native window so the new one lands on whichever
+    // virtual desktop the user is on now.
+    OverlayWindow::beforeShow(this);
 
     // show() only: raise() asks the window server to bring this window (and
     // with it our whole app) forward, which steals focus from the field the
-    // user is dictating into. The pill is already always-on-top.
+    // user is dictating into. The pill is already always on top.
     show();
 
-    // Re-apply after show(): Qt can recreate the native window between
-    // hide and show, which drops the all-Spaces collection behavior.
-    OverlayWindow::makeFloatingOverlay(this);
+    // Position AFTER show: on Windows the native window was just recreated,
+    // so anything set before would have been thrown away with it. Doing it
+    // here also means the screen is chosen from where the pointer is at the
+    // moment the pill appears.
+    moveToCurrentScreen();
+
+    OverlayWindow::afterShow(this);
+}
+
+void RecordingPill::moveToCurrentScreen()
+{
+    // Follow the user, not the app: place the pill on whichever screen the
+    // pointer is on. Pinning it to the primary screen made it appear on a
+    // display the user was not looking at.
+    QScreen *screen = QGuiApplication::screenAt(QCursor::pos());
+    if (!screen)
+        screen = QGuiApplication::primaryScreen();
+    if (!screen)
+        return;
+
+    const QRect area = screen->availableGeometry();
+    int x = area.center().x() - width() / 2;
+    int y = area.top() + 10;
+
+    // Clamp inside the target screen: a second display with a different
+    // size or scale can otherwise push the pill off its own edge.
+    x = qBound(area.left(), x, area.right() - width());
+    y = qBound(area.top(), y, area.bottom() - height());
+    move(x, y);
 }
 
 void RecordingPill::hideEvent(QHideEvent *event)

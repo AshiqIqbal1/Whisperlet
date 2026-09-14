@@ -32,6 +32,7 @@ protected:
 
 private:
     void showCentered();
+    void moveToCurrentScreen();
 
     QLabel *m_text = nullptr;
     QTimer *m_animation = nullptr;

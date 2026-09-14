@@ -37,6 +37,7 @@
 #include <QPermissions>
 #include <QMimeData>
 #include <QPushButton>
+#include <QScreen>
 #include <QScrollArea>
 #include <QScrollBar>
 #include <QSettings>
