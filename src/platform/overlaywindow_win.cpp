@@ -36,21 +36,20 @@ void OverlayWindow::configure(QWidget *widget)
     applyOverlayStyle(widget);
 }
 
-void OverlayWindow::beforeShow(QWidget *widget)
+bool OverlayWindow::recreateBeforeShow()
 {
-    if (!widget)
-        return;
-
     // Windows virtual desktops: a window belongs to the desktop it was
     // created on and stays there. There is no public API to put one on all
     // desktops, so a pill created at startup would stay on desktop 1 and be
-    // invisible when dictating on desktop 2.
-    //
-    // Destroying the native window makes the next show create a fresh one,
-    // and a newly created window lands on whichever desktop is current.
-    // Only worth doing while hidden, which is the only time this is called.
-    if (widget->isHidden() && widget->testAttribute(Qt::WA_WState_Created))
-        widget->destroy();
+    // invisible when dictating on desktop 2. A freshly created window lands
+    // on whichever desktop is current, so the caller rebuilds it each show.
+    return true;
+}
+
+void OverlayWindow::beforeShow(QWidget *)
+{
+    // Nothing to do: the caller has just discarded the native window, and
+    // afterShow styles the new one.
 }
 
 void OverlayWindow::afterShow(QWidget *widget)

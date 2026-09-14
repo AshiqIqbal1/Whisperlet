@@ -58,6 +58,11 @@ void OverlayWindow::configure(QWidget *widget)
     [window setLevel:NSPopUpMenuWindowLevel];
 }
 
+bool OverlayWindow::recreateBeforeShow()
+{
+    return false; // Spaces membership is handled by collection behaviour
+}
+
 void OverlayWindow::beforeShow(QWidget *widget)
 {
     // Assign the desktop membership while still hidden, so the window is

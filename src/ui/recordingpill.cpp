@@ -94,9 +94,13 @@ void RecordingPill::showCentered()
 {
     adjustSize();
 
-    // Prepare desktop membership while still hidden. On Windows this also
-    // discards the old native window so the new one lands on whichever
-    // virtual desktop the user is on now.
+    // On Windows the native window must be rebuilt so it lands on whichever
+    // virtual desktop the user is on now. destroy() is protected, so it has
+    // to happen here rather than inside the platform helper.
+    if (OverlayWindow::recreateBeforeShow() && isHidden()
+        && testAttribute(Qt::WA_WState_Created)) {
+        destroy();
+    }
     OverlayWindow::beforeShow(this);
 
     // show() only: raise() asks the window server to bring this window (and

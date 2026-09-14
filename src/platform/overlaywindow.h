@@ -16,6 +16,12 @@ namespace OverlayWindow {
 // One time setup. Call before the window is first shown.
 void configure(QWidget *widget);
 
+// True where the native window must be discarded and rebuilt before each
+// show for the overlay to appear on the desktop the user is currently on.
+// The widget has to do the destroying itself, since QWidget::destroy is
+// protected, so this reports the need rather than acting on it.
+bool recreateBeforeShow();
+
 // Called immediately before each show, while the window is still hidden.
 void beforeShow(QWidget *widget);
 
