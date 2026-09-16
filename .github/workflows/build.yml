@@ -30,6 +30,16 @@ jobs:
       # every src/ file, including the Windows-only ones, from any host.
       # _deps (vendored whisper.cpp) is out of scope per issue #1 and is
       # never passed in below.
+      #
+      # .cppcheck-suppressions must stay comment-free: apt's cppcheck on
+      # ubuntu-latest (2.13.0) predates '#' comment support in
+      # --suppressions-list and fails with "Failed to add suppression. No
+      # id." if the file has any. Keep suppression rationale here instead:
+      # useStlAlgorithm is a style-only suggestion to replace raw loops
+      # with std::accumulate/std::transform/std::find_if; the affected
+      # loops are on hot audio-processing paths (AudioUtil, AudioRecorder,
+      # WhisperEngine) or tiny catalog lookups, so converting them buys no
+      # correctness or measurable performance benefit.
       - name: cppcheck (src/ only)
         run: |
           cppcheck --enable=warning,performance,portability,style \

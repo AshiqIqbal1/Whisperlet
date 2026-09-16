@@ -1,8 +1,1 @@
-# cppcheck suppressions for src/ (see .github/workflows/build.yml).
-#
-# useStlAlgorithm: style-only suggestion to replace raw loops with
-# std::accumulate/std::transform/std::find_if. The affected loops are on
-# hot audio-processing paths (AudioUtil, AudioRecorder, WhisperEngine) or
-# tiny catalog lookups; converting them buys no correctness or measurable
-# performance benefit and its own noise would dwarf the checks below.
 useStlAlgorithm
