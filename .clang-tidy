@@ -1,0 +1,24 @@
+# Scoped to src/ only — see .github/workflows/build.yml, which excludes
+# _deps (vendored whisper.cpp) from the file list passed to clang-tidy.
+Checks: >
+  clang-diagnostic-*,
+  clang-analyzer-*,
+  bugprone-*,
+  performance-*,
+  portability-*,
+  -bugprone-easily-swappable-parameters,
+  -bugprone-narrowing-conversions,
+  -clang-analyzer-cplusplus.NewDeleteLeaks
+WarningsAsErrors: ''
+HeaderFilterRegex: 'src/.*'
+FormatStyle: none
+
+# Rationale for the disabled checks:
+#  - bugprone-easily-swappable-parameters: pure style opinion, very noisy on
+#    Qt widget constructors that legitimately take several same-typed params.
+#  - bugprone-narrowing-conversions: fires constantly on ordinary Qt
+#    size/index types (qsizetype/int) with no real bug behind most hits.
+#  - clang-analyzer-cplusplus.NewDeleteLeaks: doesn't understand Qt's
+#    parent/child ownership model, so it reports false leaks for every
+#    `new QWidget(this)`-style allocation and even inside Qt's own headers
+#    (e.g. QTimer::singleShot).

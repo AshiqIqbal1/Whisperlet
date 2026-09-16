@@ -17,6 +17,31 @@ env:
   QT_VERSION: '6.9.*'
 
 jobs:
+  static-analysis:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install cppcheck
+        run: sudo apt-get update && sudo apt-get install -y cppcheck
+
+      # cppcheck needs no compile database and no Qt install: --library=qt
+      # teaches it Qt's macros/ownership semantics well enough to check
+      # every src/ file, including the Windows-only ones, from any host.
+      # _deps (vendored whisper.cpp) is out of scope per issue #1 and is
+      # never passed in below.
+      - name: cppcheck (src/ only)
+        run: |
+          cppcheck --enable=warning,performance,portability,style \
+            --std=c++17 --language=c++ \
+            --library=qt \
+            --suppress=missingIncludeSystem \
+            --suppressions-list=.cppcheck-suppressions \
+            --error-exitcode=1 \
+            -I src \
+            -j "$(nproc)" \
+            src/
+
   macos:
     runs-on: macos-latest
     steps:

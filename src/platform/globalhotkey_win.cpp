@@ -79,7 +79,7 @@ struct GlobalHotkey::Impl : public QAbstractNativeEventFilter
     {
         if (eventType != "windows_generic_MSG")
             return false;
-        MSG *msg = static_cast<MSG *>(message);
+        const MSG *msg = static_cast<const MSG *>(message);
         if (msg->message == WM_HOTKEY && msg->wParam == kHotKeyId) {
             emit owner->activated();
             return true;
@@ -142,7 +142,7 @@ bool GlobalHotkey::needsAccessibility() const
     return false; // Windows needs no permission for the low level hook
 }
 
-bool GlobalHotkey::isSupported(const QKeySequence &seq) const
+bool GlobalHotkey::isSupported(const QKeySequence &seq)
 {
     return winVirtualKey(seq[0].key()) >= 0;
 }

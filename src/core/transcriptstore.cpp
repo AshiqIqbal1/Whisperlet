@@ -30,7 +30,7 @@ QList<Transcript> TranscriptStore::load()
     if (!doc.isArray())
         return result;
 
-    for (const QJsonValue &v : doc.array()) {
+    for (const auto &v : doc.array()) {
         const QJsonObject o = v.toObject();
         Transcript t;
         t.id = o.value(QStringLiteral("id")).toString();

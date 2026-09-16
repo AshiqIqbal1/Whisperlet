@@ -25,14 +25,14 @@ public:
     // failure.
     bool loadModel(const QString &path);
     bool isLoaded() const { return m_ctx != nullptr; }
-    QString loadedPath() const { return m_loadedPath; }
+    const QString &loadedPath() const { return m_loadedPath; }
 
     // samples: mono, 16kHz, float32 in [-1, 1] — see AudioRecorder.
     // Blocking. Returns the concatenated text of every segment whisper.cpp
     // produced, trimmed. Empty string on failure (check lastError()).
     QString transcribe(const std::vector<float> &samples, const QString &language = QStringLiteral("en"));
 
-    QString lastError() const { return m_lastError; }
+    const QString &lastError() const { return m_lastError; }
 
     // Perf instrumentation: how long the most recent operations took.
     qint64 lastLoadMs() const { return m_lastLoadMs; }

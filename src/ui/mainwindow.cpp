@@ -470,7 +470,7 @@ void MainWindow::promptForAccessibility()
     box.setInformativeText(tr("Open Privacy & Security → Accessibility, then switch "
                               "Whisperlet on. Your transcript was copied to the "
                               "clipboard in the meantime."));
-    QAbstractButton *openBtn = box.addButton(tr("Open Settings"), QMessageBox::AcceptRole);
+    const QAbstractButton *openBtn = box.addButton(tr("Open Settings"), QMessageBox::AcceptRole);
     box.addButton(tr("Later"), QMessageBox::RejectRole);
     box.exec();
 

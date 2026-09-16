@@ -181,7 +181,7 @@ bool GlobalHotkey::needsAccessibility() const
     return m_tapMode && !AXIsProcessTrusted();
 }
 
-bool GlobalHotkey::isSupported(const QKeySequence &seq) const
+bool GlobalHotkey::isSupported(const QKeySequence &seq)
 {
     return carbonKeyCode(seq[0].key()) >= 0;
 }
