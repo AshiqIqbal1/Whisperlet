@@ -21,12 +21,18 @@ constexpr int kTimeoutMs = 8000;
 UpdateChecker::UpdateChecker(QObject *parent)
     : QObject(parent)
     , m_net(new QNetworkAccessManager(this))
+    , m_endpoint(QString::fromLatin1(kLatestReleaseUrl))
 {
+}
+
+void UpdateChecker::setEndpointForTesting(const QUrl &url)
+{
+    m_endpoint = url;
 }
 
 void UpdateChecker::check()
 {
-    QNetworkRequest request{QUrl(QString::fromLatin1(kLatestReleaseUrl))};
+    QNetworkRequest request{m_endpoint};
     request.setTransferTimeout(kTimeoutMs);
     // The GitHub API rejects requests with no User-Agent.
     request.setHeader(QNetworkRequest::UserAgentHeader, QStringLiteral("Whisperlet-UpdateChecker"));

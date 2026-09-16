@@ -3,6 +3,7 @@
 
 #include <QObject>
 #include <QString>
+#include <QUrl>
 
 class QNetworkAccessManager;
 
@@ -18,6 +19,11 @@ class UpdateChecker : public QObject
 public:
     explicit UpdateChecker(QObject *parent = nullptr);
 
+    // Test-only seam: points check() at a stand-in server instead of the
+    // real GitHub API, so the checking/success/failure state machine can be
+    // exercised deterministically. Production code never calls this.
+    void setEndpointForTesting(const QUrl &url);
+
 public slots:
     void check();
 
@@ -28,6 +34,7 @@ signals:
 
 private:
     QNetworkAccessManager *m_net = nullptr;
+    QUrl m_endpoint;
 };
 
 #endif // UPDATECHECKER_H

@@ -288,6 +288,7 @@ QPushButton:disabled { color: #5E5E66; background: #222226; }
     updateRow->addStretch(1);
 
     m_updateButton = new QPushButton(tr("Check for Updates"), this);
+    m_updateButton->setObjectName(QStringLiteral("updateButton"));
     connect(m_updateButton, &QPushButton::clicked, this, &SettingsDialog::onCheckForUpdatesClicked);
     updateRow->addWidget(m_updateButton);
     layout->addLayout(updateRow);
@@ -301,6 +302,7 @@ QPushButton:disabled { color: #5E5E66; background: #222226; }
     // Hidden until an update is actually found; onCheckForUpdatesClicked
     // hides it again for every other outcome (up to date, failed, checking).
     m_openReleaseButton = new QPushButton(tr("Open Release Page"), this);
+    m_openReleaseButton->setObjectName(QStringLiteral("openReleaseButton"));
     m_openReleaseButton->hide();
     connect(m_openReleaseButton, &QPushButton::clicked, this, [this] {
         QDesktopServices::openUrl(QUrl(m_releaseUrl));

@@ -16,7 +16,7 @@ endif()
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-find_package(Qt6 6.5 REQUIRED COMPONENTS Core Widgets Svg Network Multimedia Concurrent LinguistTools)
+find_package(Qt6 6.5 REQUIRED COMPONENTS Core Widgets Svg Network Multimedia Concurrent LinguistTools Test)
 
 qt_standard_project_setup()
 
@@ -233,6 +233,62 @@ add_executable(versioncompare_test
 target_include_directories(versioncompare_test PRIVATE src/core)
 target_link_libraries(versioncompare_test PRIVATE Qt::Core)
 add_test(NAME VersionCompareTest COMMAND versioncompare_test)
+
+# Drives the real SettingsDialog "Check for Updates" button (checking/
+# disabled state, success, and failure) against a local stand-in HTTP
+# server — no real network, no macOS Accessibility/Screen Recording
+# permissions needed since it builds the widget in-process rather than
+# automating another window.
+qt_add_executable(settingsdialog_update_test
+    tests/settingsdialog_update_test.cpp
+    src/ui/settingsdialog.h
+    src/ui/settingsdialog.cpp
+    src/ui/theme.h
+    src/ui/theme.cpp
+    src/core/modelcatalog.h
+    src/core/modelcatalog.cpp
+    src/core/modelmanager.h
+    src/core/modelmanager.cpp
+    src/core/updatechecker.h
+    src/core/updatechecker.cpp
+    src/core/versioncompare.h
+    src/core/versioncompare.cpp
+    src/platform/globalhotkey.h
+    src/platform/globalhotkey_common.cpp
+    src/platform/textinjector.h
+)
+target_include_directories(settingsdialog_update_test PRIVATE
+    src
+    src/ui
+    src/core
+    src/platform
+    ${CMAKE_CURRENT_BINARY_DIR}/generated
+)
+target_link_libraries(settingsdialog_update_test PRIVATE
+    Qt::Core
+    Qt::Widgets
+    Qt::Network
+    Qt::Test
+)
+if(APPLE)
+    target_sources(settingsdialog_update_test PRIVATE
+        src/platform/globalhotkey_mac.cpp
+        src/platform/textinjector_mac.cpp
+    )
+    target_link_libraries(settingsdialog_update_test PRIVATE
+        "-framework Carbon"
+        "-framework ApplicationServices"
+        "-framework AppKit"
+    )
+elseif(WIN32)
+    target_sources(settingsdialog_update_test PRIVATE
+        src/platform/globalhotkey_win.cpp
+        src/platform/textinjector_win.cpp
+    )
+endif()
+add_test(NAME SettingsDialogUpdateTest COMMAND settingsdialog_update_test)
+set_tests_properties(SettingsDialogUpdateTest PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
 install(TARGETS Whisperlet
     BUNDLE  DESTINATION .
