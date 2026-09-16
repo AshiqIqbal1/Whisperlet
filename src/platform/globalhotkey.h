@@ -63,7 +63,7 @@ private:
     // Backends: register/unregister whatever the current mode says.
     bool registerNative();
     void unregisterNative();
-    bool isSupported(const QKeySequence &seq) const;
+    static bool isSupported(const QKeySequence &seq);
     bool applyCurrent(); // shared bookkeeping around registerNative()
 
     struct Impl;

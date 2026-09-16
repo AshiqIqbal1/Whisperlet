@@ -16,7 +16,7 @@ constexpr quint16 kBitsPerSample = 16;
 QString audioDir()
 {
     const QString base = QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation);
-    const QString dir = QDir(base).filePath(QStringLiteral("audio"));
+    QString dir = QDir(base).filePath(QStringLiteral("audio"));
     QDir().mkpath(dir);
     return dir;
 }
