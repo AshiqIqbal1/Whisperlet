@@ -1,0 +1,5 @@
+#pragma once
+
+// Generated from CMakeLists.txt's WHISPERLET_VERSION — do not hardcode a
+// second copy of the version string anywhere else.
+#define WHISPERLET_VERSION_STRING "@WHISPERLET_VERSION@"

@@ -5,10 +5,13 @@
 #include "modelmanager.h"
 #include "textinjector.h"
 #include "theme.h"
+#include "updatechecker.h"
+#include "version.h"
 
 #include <QButtonGroup>
 #include <QCheckBox>
 #include <QComboBox>
+#include <QDesktopServices>
 #include <QDialogButtonBox>
 #include <QGridLayout>
 #include <QKeySequenceEdit>
@@ -270,6 +273,69 @@ QPushButton:disabled { color: #5E5E66; background: #222226; }
     });
     layout->addWidget(keepAudioBox);
 
+    // --- updates -------------------------------------------------------------
+    auto *updateHeading = new QLabel(tr("Updates"), this);
+    updateHeading->setObjectName(QStringLiteral("sectionHeading"));
+    layout->addWidget(updateHeading);
+
+    auto *updateRow = new QHBoxLayout;
+    updateRow->setSpacing(10);
+
+    auto *versionLabel = new QLabel(tr("Whisperlet %1").arg(QStringLiteral(WHISPERLET_VERSION_STRING)),
+                                     this);
+    versionLabel->setObjectName(QStringLiteral("cardMeta"));
+    updateRow->addWidget(versionLabel);
+    updateRow->addStretch(1);
+
+    m_updateButton = new QPushButton(tr("Check for Updates"), this);
+    connect(m_updateButton, &QPushButton::clicked, this, &SettingsDialog::onCheckForUpdatesClicked);
+    updateRow->addWidget(m_updateButton);
+    layout->addLayout(updateRow);
+
+    m_updateStatus = new QLabel(this);
+    m_updateStatus->setObjectName(QStringLiteral("cardMeta"));
+    m_updateStatus->setWordWrap(true);
+    m_updateStatus->hide();
+    layout->addWidget(m_updateStatus);
+
+    // Hidden until an update is actually found; onCheckForUpdatesClicked
+    // hides it again for every other outcome (up to date, failed, checking).
+    m_openReleaseButton = new QPushButton(tr("Open Release Page"), this);
+    m_openReleaseButton->hide();
+    connect(m_openReleaseButton, &QPushButton::clicked, this, [this] {
+        QDesktopServices::openUrl(QUrl(m_releaseUrl));
+    });
+    layout->addWidget(m_openReleaseButton);
+
+    m_updateChecker = new UpdateChecker(this);
+    connect(m_updateChecker, &UpdateChecker::updateAvailable, this,
+            [this](const QString &version, const QString &releaseUrl) {
+                m_updateButton->setEnabled(true);
+                m_updateButton->setText(tr("Check for Updates"));
+                m_updateStatus->setText(tr("Whisperlet %1 is available.").arg(version));
+                m_updateStatus->show();
+
+                m_releaseUrl = releaseUrl;
+                m_openReleaseButton->show();
+            });
+    connect(m_updateChecker, &UpdateChecker::upToDate, this, [this] {
+        m_updateButton->setEnabled(true);
+        m_updateButton->setText(tr("Check for Updates"));
+        m_openReleaseButton->hide();
+        m_updateStatus->setText(tr("You're on the latest version."));
+        m_updateStatus->show();
+    });
+    connect(m_updateChecker, &UpdateChecker::checkFailed, this, [this](const QString &error) {
+        Q_UNUSED(error);
+        m_updateButton->setEnabled(true);
+        m_updateButton->setText(tr("Check for Updates"));
+        m_openReleaseButton->hide();
+        // Quiet by design: a stale connection or GitHub hiccup isn't worth a
+        // blocking dialog, just a small inline note.
+        m_updateStatus->setText(tr("Couldn't check for updates. Try again later."));
+        m_updateStatus->show();
+    });
+
     layout->addStretch(1);
 
     auto *buttons = new QDialogButtonBox(QDialogButtonBox::Close, this);
@@ -351,6 +417,15 @@ void SettingsDialog::onHotkeyEdited()
                                     .arg(m_hotkey->comboLabel()));
         m_hotkeyEdit->setKeySequence(m_hotkey->sequence());
     }
+}
+
+void SettingsDialog::onCheckForUpdatesClicked()
+{
+    m_updateButton->setEnabled(false);
+    m_updateButton->setText(tr("Checking..."));
+    m_openReleaseButton->hide();
+    m_updateStatus->hide();
+    m_updateChecker->check();
 }
 
 void SettingsDialog::onDownloadClicked(const QString &id)

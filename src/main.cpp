@@ -1,4 +1,5 @@
 #include "mainwindow.h"
+#include "version.h"
 
 #include <QApplication>
 #include <QDir>
@@ -48,6 +49,7 @@ int main(int argc, char *argv[])
     // Windows). Must happen before anything touches settings or the model dir.
     QCoreApplication::setOrganizationName(QStringLiteral("Whisperlet"));
     QCoreApplication::setApplicationName(QStringLiteral("Whisperlet"));
+    QCoreApplication::setApplicationVersion(QStringLiteral(WHISPERLET_VERSION_STRING));
     a.setWindowIcon(QIcon(QStringLiteral(":/assets/icon-64.png")));
 
     migrateFromWhisperFlow();

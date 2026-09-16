@@ -1,9 +1,16 @@
 cmake_minimum_required(VERSION 3.19)
+
+# Single source of truth for the app version: reused for the macOS bundle
+# metadata below and baked into a generated header so the running app can
+# report its own version (e.g. for the update checker) without a second
+# hardcoded copy drifting out of sync.
+set(WHISPERLET_VERSION "0.7.1")
+
 # OBJCXX: the macOS overlay backend is Objective-C++ (AppKit).
 if(APPLE)
-    project(Whisperlet LANGUAGES CXX OBJCXX)
+    project(Whisperlet VERSION ${WHISPERLET_VERSION} LANGUAGES CXX OBJCXX)
 else()
-    project(Whisperlet LANGUAGES CXX)
+    project(Whisperlet VERSION ${WHISPERLET_VERSION} LANGUAGES CXX)
 endif()
 
 set(CMAKE_CXX_STANDARD 17)
@@ -85,6 +92,12 @@ if(NOT MSVC)
     endforeach()
 endif()
 
+configure_file(
+    resources/version.h.in
+    ${CMAKE_CURRENT_BINARY_DIR}/generated/version.h
+    @ONLY
+)
+
 qt_add_executable(Whisperlet
     WIN32 MACOSX_BUNDLE
     src/main.cpp
@@ -104,6 +117,10 @@ qt_add_executable(Whisperlet
     src/core/modelcatalog.cpp
     src/core/modelmanager.h
     src/core/modelmanager.cpp
+    src/core/updatechecker.h
+    src/core/updatechecker.cpp
+    src/core/versioncompare.h
+    src/core/versioncompare.cpp
     src/core/whisperengine.h
     src/core/whisperengine.cpp
     src/core/audiorecorder.h
@@ -138,6 +155,7 @@ target_include_directories(Whisperlet PRIVATE
     src/ui
     src/core
     src/platform
+    ${CMAKE_CURRENT_BINARY_DIR}/generated
 )
 
 # Global hotkey needs a native, OS-specific backend. Carbon's hotkey API is
@@ -165,7 +183,7 @@ if(APPLE)
         MACOSX_BUNDLE_INFO_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/resources/Info.plist.in"
         MACOSX_BUNDLE_GUI_IDENTIFIER "com.ashiqiqbal.whisperlet"
         MACOSX_BUNDLE_BUNDLE_NAME "Whisperlet"
-        MACOSX_BUNDLE_SHORT_VERSION_STRING "0.7.1"
+        MACOSX_BUNDLE_SHORT_VERSION_STRING "${WHISPERLET_VERSION}"
         MACOSX_BUNDLE_BUNDLE_VERSION "1"
         MACOSX_BUNDLE_ICON_FILE "whisperlet.icns"
     )
@@ -202,6 +220,19 @@ target_link_libraries(Whisperlet
         Qt::Concurrent
         whisper
 )
+
+enable_testing()
+
+# Pure logic, no QObject/moc, no network, no event loop — just the version
+# comparison the update checker relies on.
+add_executable(versioncompare_test
+    tests/versioncompare_test.cpp
+    src/core/versioncompare.h
+    src/core/versioncompare.cpp
+)
+target_include_directories(versioncompare_test PRIVATE src/core)
+target_link_libraries(versioncompare_test PRIVATE Qt::Core)
+add_test(NAME VersionCompareTest COMMAND versioncompare_test)
 
 install(TARGETS Whisperlet
     BUNDLE  DESTINATION .
