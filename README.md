@@ -18,6 +18,11 @@ Prebuilt binaries are on the [releases page](https://github.com/AshiqIqbal1/Whis
 a `.zip` for Windows x64 and a `.dmg` for macOS on Apple silicon. Each release
 also ships `SHA256SUMS.txt`.
 
+A full release is cut automatically every Monday
+([release.yml](.github/workflows/release.yml)); any other tagged build is
+marked pre-release, so "Latest" on the releases page is always that week's
+build.
+
 Neither binary is code signed, so the OS warns on first run:
 
 - Windows: SmartScreen appears, choose More info then Run anyway

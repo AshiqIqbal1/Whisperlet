@@ -6,6 +6,20 @@ on:
     tags: ['v*']
   pull_request:
   workflow_dispatch:
+  # Reused by release.yml (the Monday scheduled release) via `workflow_call`
+  # so the build steps aren't duplicated. `tag`/`prerelease` are only
+  # meaningful for that call; a direct tag push ignores them.
+  workflow_call:
+    inputs:
+      tag:
+        description: 'Tag to attach the release to (workflow_call only)'
+        type: string
+        required: false
+      prerelease:
+        description: 'Mark the created release as a pre-release (workflow_call only)'
+        type: boolean
+        required: false
+        default: true
 
 # 6.9+ required on macOS: Qt <=6.8 links the AGL framework, which Apple
 # removed from the SDK shipped on current macos-latest runners.
@@ -133,7 +147,7 @@ jobs:
           path: Whisperlet-windows-x64.zip
 
   release:
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_call'
     needs: [macos, windows]
     runs-on: ubuntu-latest
     permissions:
@@ -146,11 +160,19 @@ jobs:
       - name: Checksums
         run: sha256sum Whisperlet-macos-arm64.dmg Whisperlet-windows-x64.zip > SHA256SUMS.txt
 
+      # Only the Monday scheduled run (release.yml, via workflow_call with
+      # prerelease: false) produces a full/latest release. Every other
+      # trigger of this job - a manual `git tag vX && git push --tags`, or
+      # any future workflow_call that doesn't override the default - is
+      # marked prerelease so it never displaces the weekly release as
+      # "Latest".
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ inputs.tag || github.ref_name }}
           files: |
             Whisperlet-macos-arm64.dmg
             Whisperlet-windows-x64.zip
             SHA256SUMS.txt
           generate_release_notes: true
+          prerelease: ${{ github.event_name != 'workflow_call' || inputs.prerelease }}

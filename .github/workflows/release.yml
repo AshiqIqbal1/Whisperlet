@@ -1,0 +1,44 @@
+name: weekly release
+
+# Cuts a real (non-prerelease) release every Monday. 09:00 UTC is chosen so
+# it lands during/after typical US/EU night builds and well clear of the
+# UTC day boundary, avoiding any date-tag ambiguity. Every other build/tag
+# in this repo (a manual `git tag` push handled by build.yml) is marked
+# prerelease so this weekly run is the only thing that ever becomes
+# "Latest".
+#
+# workflow_dispatch is provided for testing: a manual run goes through the
+# exact same steps below (new date tag, full/non-prerelease release) -
+# there is no day-of-week gate, so use it deliberately, not as a dry run.
+on:
+  schedule:
+    - cron: '0 9 * * 1' # Monday 09:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  tag:
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create and push date-based tag
+        id: tag
+        run: |
+          TAG="v$(date -u +%Y.%m.%d)"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          git tag "$TAG"
+          git push origin "$TAG"
+
+  build-and-release:
+    needs: tag
+    uses: ./.github/workflows/build.yml
+    permissions:
+      contents: write
+    with:
+      tag: ${{ needs.tag.outputs.tag }}
+      prerelease: false
