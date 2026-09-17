@@ -1,15 +1,22 @@
 cmake_minimum_required(VERSION 3.19)
+
+# Single source of truth for the app version: reused for the macOS bundle
+# metadata below and baked into a generated header so the running app can
+# report its own version (e.g. for the update checker) without a second
+# hardcoded copy drifting out of sync.
+set(WHISPERLET_VERSION "0.7.1")
+
 # OBJCXX: the macOS overlay backend is Objective-C++ (AppKit).
 if(APPLE)
-    project(Whisperlet LANGUAGES CXX OBJCXX)
+    project(Whisperlet VERSION ${WHISPERLET_VERSION} LANGUAGES CXX OBJCXX)
 else()
-    project(Whisperlet LANGUAGES CXX)
+    project(Whisperlet VERSION ${WHISPERLET_VERSION} LANGUAGES CXX)
 endif()
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-find_package(Qt6 6.5 REQUIRED COMPONENTS Core Widgets Svg Network Multimedia Concurrent LinguistTools)
+find_package(Qt6 6.5 REQUIRED COMPONENTS Core Widgets Svg Network Multimedia Concurrent LinguistTools Test)
 
 qt_standard_project_setup()
 
@@ -85,6 +92,12 @@ if(NOT MSVC)
     endforeach()
 endif()
 
+configure_file(
+    resources/version.h.in
+    ${CMAKE_CURRENT_BINARY_DIR}/generated/version.h
+    @ONLY
+)
+
 qt_add_executable(Whisperlet
     WIN32 MACOSX_BUNDLE
     src/main.cpp
@@ -104,6 +117,10 @@ qt_add_executable(Whisperlet
     src/core/modelcatalog.cpp
     src/core/modelmanager.h
     src/core/modelmanager.cpp
+    src/core/updatechecker.h
+    src/core/updatechecker.cpp
+    src/core/versioncompare.h
+    src/core/versioncompare.cpp
     src/core/whisperengine.h
     src/core/whisperengine.cpp
     src/core/audiorecorder.h
@@ -138,6 +155,7 @@ target_include_directories(Whisperlet PRIVATE
     src/ui
     src/core
     src/platform
+    ${CMAKE_CURRENT_BINARY_DIR}/generated
 )
 
 # Global hotkey needs a native, OS-specific backend. Carbon's hotkey API is
@@ -165,7 +183,7 @@ if(APPLE)
         MACOSX_BUNDLE_INFO_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/resources/Info.plist.in"
         MACOSX_BUNDLE_GUI_IDENTIFIER "com.ashiqiqbal.whisperlet"
         MACOSX_BUNDLE_BUNDLE_NAME "Whisperlet"
-        MACOSX_BUNDLE_SHORT_VERSION_STRING "0.7.1"
+        MACOSX_BUNDLE_SHORT_VERSION_STRING "${WHISPERLET_VERSION}"
         MACOSX_BUNDLE_BUNDLE_VERSION "1"
         MACOSX_BUNDLE_ICON_FILE "whisperlet.icns"
     )
@@ -202,6 +220,75 @@ target_link_libraries(Whisperlet
         Qt::Concurrent
         whisper
 )
+
+enable_testing()
+
+# Pure logic, no QObject/moc, no network, no event loop — just the version
+# comparison the update checker relies on.
+add_executable(versioncompare_test
+    tests/versioncompare_test.cpp
+    src/core/versioncompare.h
+    src/core/versioncompare.cpp
+)
+target_include_directories(versioncompare_test PRIVATE src/core)
+target_link_libraries(versioncompare_test PRIVATE Qt::Core)
+add_test(NAME VersionCompareTest COMMAND versioncompare_test)
+
+# Drives the real SettingsDialog "Check for Updates" button (checking/
+# disabled state, success, and failure) against a local stand-in HTTP
+# server — no real network, no macOS Accessibility/Screen Recording
+# permissions needed since it builds the widget in-process rather than
+# automating another window.
+qt_add_executable(settingsdialog_update_test
+    tests/settingsdialog_update_test.cpp
+    src/ui/settingsdialog.h
+    src/ui/settingsdialog.cpp
+    src/ui/theme.h
+    src/ui/theme.cpp
+    src/core/modelcatalog.h
+    src/core/modelcatalog.cpp
+    src/core/modelmanager.h
+    src/core/modelmanager.cpp
+    src/core/updatechecker.h
+    src/core/updatechecker.cpp
+    src/core/versioncompare.h
+    src/core/versioncompare.cpp
+    src/platform/globalhotkey.h
+    src/platform/globalhotkey_common.cpp
+    src/platform/textinjector.h
+)
+target_include_directories(settingsdialog_update_test PRIVATE
+    src
+    src/ui
+    src/core
+    src/platform
+    ${CMAKE_CURRENT_BINARY_DIR}/generated
+)
+target_link_libraries(settingsdialog_update_test PRIVATE
+    Qt::Core
+    Qt::Widgets
+    Qt::Network
+    Qt::Test
+)
+if(APPLE)
+    target_sources(settingsdialog_update_test PRIVATE
+        src/platform/globalhotkey_mac.cpp
+        src/platform/textinjector_mac.cpp
+    )
+    target_link_libraries(settingsdialog_update_test PRIVATE
+        "-framework Carbon"
+        "-framework ApplicationServices"
+        "-framework AppKit"
+    )
+elseif(WIN32)
+    target_sources(settingsdialog_update_test PRIVATE
+        src/platform/globalhotkey_win.cpp
+        src/platform/textinjector_win.cpp
+    )
+endif()
+add_test(NAME SettingsDialogUpdateTest COMMAND settingsdialog_update_test)
+set_tests_properties(SettingsDialogUpdateTest PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
 install(TARGETS Whisperlet
     BUNDLE  DESTINATION .

@@ -25,6 +25,10 @@ On macOS only, dictation needs Accessibility permission (Privacy & Security,
 then Accessibility) so the app can type into other applications. Windows
 needs no permission for this.
 
+Settings has a "Check for Updates" button that queries the releases page and,
+if a newer version is out, offers to open it in your browser. It never
+downloads or installs anything for you.
+
 ## Using it
 
 Open Settings with the gear icon and download a model. Then pick a shortcut,
@@ -94,7 +98,7 @@ machine.
 
 ```
 src/ui        window, transcript cards, recording pill, settings
-src/core      whisper engine, model downloads, audio capture and DSP
+src/core      whisper engine, model downloads, audio capture, DSP, update check
 src/platform  global shortcut, text injection, overlay window (per OS)
 tools         icon regeneration
 ```
