@@ -6,6 +6,7 @@
 
 class GlobalHotkey;
 class ModelManager;
+class UpdateChecker;
 class QComboBox;
 class QKeySequenceEdit;
 class QLabel;
@@ -31,6 +32,7 @@ private slots:
     void onProgress(const QString &id, qint64 received, qint64 total);
     void onFinished(const QString &id, bool ok, const QString &error);
     void onHotkeyEdited();
+    void onCheckForUpdatesClicked();
 
 private:
     struct Row
@@ -51,6 +53,12 @@ private:
     QComboBox *m_modCombo = nullptr;
     QLabel *m_hotkeyStatus = nullptr;
     QMap<QString, Row> m_rows;
+
+    UpdateChecker *m_updateChecker = nullptr;
+    QPushButton *m_updateButton = nullptr;
+    QLabel *m_updateStatus = nullptr;
+    QPushButton *m_openReleaseButton = nullptr;
+    QString m_releaseUrl;
 };
 
 #endif // SETTINGSDIALOG_H
