@@ -33,7 +33,7 @@ public:
 
     // Always 16000 — stop() resamples if the device captured at a
     // different native rate, so callers never need to branch on this.
-    int sampleRate() const { return 16000; }
+    static int sampleRate() { return 16000; }
 
     // Full-quality (native rate) copy of the last recording, conditioned but
     // not downsampled — this is what gets stored for playback so clips don't
@@ -41,7 +41,7 @@ public:
     std::vector<float> takeNativeAudio();
     int nativeRate() const { return m_nativeRate; }
 
-    QString lastError() const { return m_lastError; }
+    const QString &lastError() const { return m_lastError; }
 
 signals:
     void levelChanged(qreal level); // 0..1, roughly RMS of the last chunk

@@ -42,8 +42,13 @@ AudioRecorder::AudioRecorder(QObject *parent)
 
 AudioRecorder::~AudioRecorder()
 {
-    if (m_source)
-        stop();
+    // stop() allocates (QSettings, std::vector growth) and destructors must
+    // never let an exception escape, so swallow anything it throws here.
+    try {
+        if (m_source)
+            stop();
+    } catch (...) {
+    }
 }
 
 bool AudioRecorder::start()
@@ -79,7 +84,7 @@ bool AudioRecorder::start()
 
     const QAudioFormat preferred = device.preferredFormat();
     if (preferred.sampleRate() > kTargetRate && device.isFormatSupported(preferred))
-        m_format = preferred;
+        m_format = preferred; // NOLINT(bugprone-branch-clone): last branch is a deliberate unchecked last resort
     else if (device.isFormatSupported(desired))
         m_format = desired;
     else
@@ -126,12 +131,13 @@ void AudioRecorder::onReadyRead()
     for (int f = 0; f < frames; ++f) {
         float sum = 0.0f;
         for (int c = 0; c < channels; ++c) {
-            sum += sampleToFloat(data + f * frameSize + c * bytesPerSample, m_format.sampleFormat());
+            sum += sampleToFloat(data + static_cast<ptrdiff_t>(f) * frameSize + static_cast<ptrdiff_t>(c) * bytesPerSample,
+                                  m_format.sampleFormat());
         }
         m_samples.push_back(sum / channels);
     }
 
-    m_pending.remove(0, frames * frameSize);
+    m_pending.remove(0, static_cast<qsizetype>(frames) * frameSize);
 
     // RMS level over just this chunk, scaled up a bit so normal speech
     // visibly moves the ring instead of hugging zero.
@@ -159,25 +165,25 @@ std::vector<float> AudioRecorder::stop()
     m_source = nullptr;
     m_device = nullptr;
 
-    const int nativeRate = m_format.sampleRate();
+    const int captureRate = m_format.sampleRate();
 
     // Strip the steady background first, so the AGC below measures speech
     // against a cleaned floor instead of amplifying room noise with it.
     if (QSettings().value(QStringLiteral("suppressNoise"), true).toBool())
-        AudioUtil::denoise(m_samples, nativeRate);
+        AudioUtil::denoise(m_samples, captureRate);
 
     // Condition ONCE at the native rate — high-pass + speech-level AGC +
     // limiter — so any mic at any system gain gives the same healthy signal
     // with no manual OS settings.
-    AudioUtil::condition(m_samples, nativeRate);
+    AudioUtil::condition(m_samples, captureRate);
 
     // Keep the full-quality version for playback; hand the model its 16kHz.
     m_nativeAudio = m_samples;
-    m_nativeRate = nativeRate;
+    m_nativeRate = captureRate;
 
-    std::vector<float> result = nativeRate == kTargetRate
+    std::vector<float> result = captureRate == kTargetRate
         ? std::move(m_samples)
-        : AudioUtil::resample(std::move(m_samples), nativeRate, kTargetRate);
+        : AudioUtil::resample(std::move(m_samples), captureRate, kTargetRate);
 
     m_samples.clear();
     m_pending.clear();
