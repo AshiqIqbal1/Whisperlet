@@ -10,6 +10,8 @@ leaves the machine.
 
 C++17 and Qt 6. One tree builds for Windows and macOS.
 
+![Whisperlet main window showing the transcript list](assets/screenshot.png)
+
 ## Download
 
 Prebuilt binaries are on the [releases page](https://github.com/AshiqIqbal1/Whisperlet/releases):
