@@ -78,6 +78,13 @@ MainWindow::MainWindow(QWidget *parent)
     m_player = new QMediaPlayer(this);
     m_audioOut = new QAudioOutput(this);
     m_player->setAudioOutput(m_audioOut);
+    // Without this, a clip that fails to decode (unsupported codec, missing
+    // multimedia backend plugin, bad output device) fails completely
+    // silently — pressing play just does nothing, with no way to tell why.
+    connect(m_player, &QMediaPlayer::errorOccurred, this,
+            [this](QMediaPlayer::Error, const QString &errorString) {
+                flashStatus(tr("Couldn't play that recording: %1").arg(errorString));
+            });
 
     auto *root = new QWidget(this);
     root->setObjectName(QStringLiteral("root"));

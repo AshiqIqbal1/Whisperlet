@@ -290,6 +290,42 @@ add_test(NAME SettingsDialogUpdateTest COMMAND settingsdialog_update_test)
 set_tests_properties(SettingsDialogUpdateTest PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
+# Drives the play-button trigger path end to end: a real TranscriptCard
+# with a clip on disk emits playRequested(id) when its play button is
+# clicked, and that id resolves through AudioClipStore to a WAV file
+# QMediaPlayer can actually load — the same two steps MainWindow::playClip
+# chains together. Builds the card and AudioClipStore in-process rather
+# than the full MainWindow (whose RecordingPill needs a real native window
+# handle, unavailable under the offscreen QPA platform this test runs
+# under) — no macOS Accessibility/Screen Recording permissions needed.
+qt_add_executable(playback_trigger_test
+    tests/playback_trigger_test.cpp
+    src/ui/theme.h
+    src/ui/theme.cpp
+    src/ui/icons.h
+    src/ui/icons.cpp
+    src/ui/transcriptcard.h
+    src/ui/transcriptcard.cpp
+    src/core/audioclipstore.h
+    src/core/audioclipstore.cpp
+)
+target_include_directories(playback_trigger_test PRIVATE
+    src
+    src/ui
+    src/core
+    ${CMAKE_CURRENT_BINARY_DIR}/generated
+)
+target_link_libraries(playback_trigger_test PRIVATE
+    Qt::Core
+    Qt::Widgets
+    Qt::Svg
+    Qt::Multimedia
+    Qt::Test
+)
+add_test(NAME PlaybackTriggerTest COMMAND playback_trigger_test)
+set_tests_properties(PlaybackTriggerTest PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
 install(TARGETS Whisperlet
     BUNDLE  DESTINATION .
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
