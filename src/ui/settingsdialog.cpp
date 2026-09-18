@@ -30,6 +30,13 @@ SettingsDialog::SettingsDialog(ModelManager *models, GlobalHotkey *hotkey, QWidg
 {
     setWindowTitle(tr("Settings"));
     setMinimumWidth(520);
+    // Window-modal (not the exec() default of application-modal) so Cocoa
+    // registers this as a real child window of the main window (NSWindow
+    // addChildWindow). Application-modal dialogs run as independent
+    // top-level windows with no window-server parent/child link, so a
+    // Space switch reshuffles their relative order — Settings would drop
+    // behind the main window and then pop back in front.
+    setWindowModality(Qt::WindowModal);
     setStyleSheet(Theme::styleSheet() + QStringLiteral(R"(
 QDialog { background: #1A1A1D; }
 #sectionHeading { font-size: 16px; font-weight: 600; padding-top: 4px; }
