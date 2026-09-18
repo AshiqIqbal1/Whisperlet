@@ -7,7 +7,8 @@ prerequisites and the CMake commands.
 
 ## Tests
 
-There are no automated tests yet.
+Run `ctest` from the build directory. Tests are registered in
+`CMakeLists.txt` alongside the targets they cover.
 
 ## Coding conventions
 
