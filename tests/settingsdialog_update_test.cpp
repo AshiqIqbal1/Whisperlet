@@ -139,6 +139,19 @@ void testCheckFailedShowsQuietMessageNoDialog()
     // The failure path never raises a QMessageBox — if it did, this test
     // would hang on the modal event loop and time out instead of finishing.
 }
+void testDialogIsWindowModalNotApplicationModal()
+{
+    // Application-modal dialogs run as independent top-level windows on
+    // Cocoa, with no window-server parent/child link to the main window —
+    // a Space switch then reshuffles their relative order (issue #29:
+    // Settings dropping behind the main window and popping back). Window
+    // modality makes Qt register a real Cocoa child window instead, which
+    // keeps the two windows' front/back order stable across Space switches.
+    ModelManager models;
+    GlobalHotkey hotkey;
+    SettingsDialog dialog(&models, &hotkey);
+    check(dialog.windowModality() == Qt::WindowModal, "settings dialog is window-modal");
+}
 } // namespace
 
 int main(int argc, char **argv)
@@ -152,6 +165,7 @@ int main(int argc, char **argv)
 
     testCheckingStateThenUpdateAvailable();
     testCheckFailedShowsQuietMessageNoDialog();
+    testDialogIsWindowModalNotApplicationModal();
 
     if (failures == 0)
         std::printf("All settings-dialog update tests passed.\n");
