@@ -1,15 +1,23 @@
 #include "singleinstanceguard.h"
 
+#include <QDir>
 #include <QLocalServer>
 #include <QLocalSocket>
 
 namespace {
 constexpr int kPingTimeoutMs = 200;
+constexpr int kLockTimeoutMs = 200;
+
+QString lockFilePath(const QString &key)
+{
+    return QDir::temp().filePath(key + QStringLiteral(".lock"));
+}
 }
 
 SingleInstanceGuard::SingleInstanceGuard(const QString &key, QObject *parent)
     : QObject(parent)
     , m_key(key)
+    , m_lockFile(lockFilePath(key))
 {
 }
 
@@ -26,41 +34,38 @@ bool SingleInstanceGuard::tryAcquire()
         return false;
     }
 
-    // No live instance answered. Try to claim the name outright first; only if
-    // that fails because a stale socket file is left behind (e.g. a previous
-    // instance crashed) do we remove it and retry, so two processes racing
-    // through the probe above can't both delete the file out from under
-    // whichever one gets to listen() first.
+    // No live instance answered. QLockFile::tryLock() atomically claims (or,
+    // if the owning process is gone, reclaims) the lock in one step, so two
+    // processes racing through the probe above can't both win: only one can
+    // hold the lock, and it alone proceeds to remove any stale socket file
+    // and listen.
+    if (!m_lockFile.tryLock(kLockTimeoutMs)) {
+        QLocalSocket recheck;
+        recheck.connectToServer(m_key);
+        if (recheck.waitForConnected(kPingTimeoutMs)) {
+            recheck.write("activate");
+            recheck.waitForBytesWritten(kPingTimeoutMs);
+            recheck.disconnectFromServer();
+            return false;
+        }
+
+        // Could not acquire the lock and could not reach a listener either.
+        // Fail open rather than block the user from launching the app at all.
+        return true;
+    }
+
+    QLocalServer::removeServer(m_key);
+
     m_server = std::make_unique<QLocalServer>(this);
     connect(m_server.get(), &QLocalServer::newConnection, this,
             &SingleInstanceGuard::handleNewConnection);
 
-    if (m_server->listen(m_key)) {
+    if (!m_server->listen(m_key)) {
+        m_server.reset();
+        m_lockFile.unlock();
         return true;
     }
 
-    if (m_server->serverError() == QAbstractSocket::AddressInUseError) {
-        QLocalSocket recheck;
-        recheck.connectToServer(m_key);
-        if (recheck.waitForConnected(kPingTimeoutMs)) {
-            // Another instance won the race and is now listening.
-            recheck.write("activate");
-            recheck.waitForBytesWritten(kPingTimeoutMs);
-            recheck.disconnectFromServer();
-            m_server.reset();
-            return false;
-        }
-
-        QLocalServer::removeServer(m_key);
-        if (m_server->listen(m_key)) {
-            return true;
-        }
-    }
-
-    // Lost a startup race to another instance mid-check, or the platform
-    // refused for some other reason. Fail open rather than block the
-    // user from launching the app at all.
-    m_server.reset();
     return true;
 }
 

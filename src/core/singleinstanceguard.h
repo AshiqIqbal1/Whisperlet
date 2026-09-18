@@ -2,6 +2,7 @@
 #define SINGLEINSTANCEGUARD_H
 
 #include <QObject>
+#include <QLockFile>
 #include <QString>
 
 #include <memory>
@@ -9,12 +10,13 @@
 class QLocalServer;
 
 // Keeps a second launch of the app from starting alongside a running one.
-// The first instance to call tryAcquire() listens on a named local socket
-// and becomes primary; any later instance finds that socket already taken,
-// forwards it a one-shot "activate" ping, and should exit without showing
-// a window. If the primary instance crashed and left its socket file behind
-// (a stale lock), connecting to it fails, so tryAcquire() removes the stale
-// file and listens in its place rather than refusing to start forever.
+// The first instance to call tryAcquire() atomically claims a QLockFile and
+// then listens on a named local socket, becoming primary; any later instance
+// finds the lock already held, forwards the primary a one-shot "activate"
+// ping, and should exit without showing a window. If the primary instance
+// crashed and left its lock file behind (a stale lock), QLockFile detects
+// that the owning process is gone and reclaims it atomically, so tryAcquire()
+// can take over rather than refusing to start forever.
 class SingleInstanceGuard : public QObject
 {
     Q_OBJECT
@@ -37,6 +39,7 @@ private slots:
 
 private:
     QString m_key;
+    QLockFile m_lockFile;
     std::unique_ptr<QLocalServer> m_server;
 };
 
