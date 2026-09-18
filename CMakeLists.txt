@@ -121,6 +121,8 @@ qt_add_executable(Whisperlet
     src/core/updatechecker.cpp
     src/core/versioncompare.h
     src/core/versioncompare.cpp
+    src/core/singleinstanceguard.h
+    src/core/singleinstanceguard.cpp
     src/core/whisperengine.h
     src/core/whisperengine.cpp
     src/core/audiorecorder.h
@@ -233,6 +235,22 @@ add_executable(versioncompare_test
 target_include_directories(versioncompare_test PRIVATE src/core)
 target_link_libraries(versioncompare_test PRIVATE Qt::Core)
 add_test(NAME VersionCompareTest COMMAND versioncompare_test)
+
+# Exercises the local-socket lock directly: second launch defers to the
+# first and pings it to activate, and a stale socket file left by an
+# unclean exit doesn't block a later launch from becoming primary.
+qt_add_executable(singleinstanceguard_test
+    tests/singleinstanceguard_test.cpp
+    src/core/singleinstanceguard.h
+    src/core/singleinstanceguard.cpp
+)
+target_include_directories(singleinstanceguard_test PRIVATE src/core)
+target_link_libraries(singleinstanceguard_test PRIVATE
+    Qt::Core
+    Qt::Network
+    Qt::Test
+)
+add_test(NAME SingleInstanceGuardTest COMMAND singleinstanceguard_test)
 
 # Drives the real SettingsDialog "Check for Updates" button (checking/
 # disabled state, success, and failure) against a local stand-in HTTP

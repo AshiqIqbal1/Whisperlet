@@ -1,4 +1,5 @@
 #include "mainwindow.h"
+#include "singleinstanceguard.h"
 #include "version.h"
 
 #include <QApplication>
@@ -54,6 +55,15 @@ int main(int argc, char *argv[])
 
     migrateFromWhisperFlow();
 
+    // Refuse to run a second instance side by side; instead bring the
+    // running one to the front. Prevents duplicate global hotkeys, duplicate
+    // access to the same recordings/model files, and confusing double tray
+    // icons if a user double-clicks the app (or launches at login) while
+    // it's already running.
+    SingleInstanceGuard singleInstanceGuard(QStringLiteral("Whisperlet-single-instance"));
+    if (!singleInstanceGuard.tryAcquire())
+        return 0;
+
     // Everything we store (transcripts, recordings, models) lives here.
     // Qt creates directories world readable by default; on a shared machine
     // that would let any other local account read the user's dictation.
@@ -73,6 +83,12 @@ int main(int argc, char *argv[])
         }
     }
     MainWindow w;
+    QObject::connect(&singleInstanceGuard, &SingleInstanceGuard::activationRequested, &w, [&w]() {
+        w.setWindowState((w.windowState() & ~Qt::WindowMinimized) | Qt::WindowActive);
+        w.show();
+        w.raise();
+        w.activateWindow();
+    });
     w.show();
     return QApplication::exec();
 }
