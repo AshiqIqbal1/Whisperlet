@@ -21,20 +21,45 @@ QString audioDir()
     return dir;
 }
 
+// Ids end up on disk verbatim (transcripts.json, drag-and-drop, ids echoed
+// back through Qt signals), so treat them as untrusted input: reject
+// anything that could turn `id + ".wav"` into a path that escapes
+// audioDir() rather than trying to sanitize it, since silently stripping
+// characters would just create id collisions.
+bool isSafeId(const QString &id)
+{
+    if (id.isEmpty())
+        return false;
+    if (id.contains(QLatin1Char('/')) || id.contains(QLatin1Char('\\')))
+        return false;
+    if (id.contains(QStringLiteral("..")))
+        return false;
+    if (id.contains(QChar(0)))
+        return false;
+    return true;
+}
+
 } // namespace
 
 QString AudioClipStore::path(const QString &id)
 {
+    if (!isSafeId(id))
+        return QString();
     return QDir(audioDir()).filePath(id + QStringLiteral(".wav"));
 }
 
 bool AudioClipStore::exists(const QString &id)
 {
+    if (!isSafeId(id))
+        return false;
     return QFile::exists(path(id));
 }
 
 bool AudioClipStore::save(const QString &id, const std::vector<float> &samples, int rate)
 {
+    if (!isSafeId(id))
+        return false;
+
     QFile file(path(id));
     if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate))
         return false;
@@ -77,6 +102,9 @@ bool AudioClipStore::save(const QString &id, const std::vector<float> &samples, 
 
 std::vector<float> AudioClipStore::load(const QString &id, int *rateOut)
 {
+    if (!isSafeId(id))
+        return {};
+
     QFile file(path(id));
     if (!file.open(QIODevice::ReadOnly) || file.size() <= 44)
         return {};
@@ -107,5 +135,7 @@ std::vector<float> AudioClipStore::load(const QString &id, int *rateOut)
 
 void AudioClipStore::remove(const QString &id)
 {
+    if (!isSafeId(id))
+        return;
     QFile::remove(path(id));
 }
