@@ -344,6 +344,19 @@ add_test(NAME PlaybackTriggerTest COMMAND playback_trigger_test)
 set_tests_properties(PlaybackTriggerTest PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
+# Ids stored on AudioClipStore end up on disk (transcripts.json) and get fed
+# straight back into path building, so this locks down that an id trying to
+# escape the audio directory (`../..`, an absolute path, separators) is
+# rejected rather than resolving outside it.
+qt_add_executable(audioclipstore_security_test
+    tests/audioclipstore_security_test.cpp
+    src/core/audioclipstore.h
+    src/core/audioclipstore.cpp
+)
+target_include_directories(audioclipstore_security_test PRIVATE src/core)
+target_link_libraries(audioclipstore_security_test PRIVATE Qt::Core)
+add_test(NAME AudioClipStoreSecurityTest COMMAND audioclipstore_security_test)
+
 install(TARGETS Whisperlet
     BUNDLE  DESTINATION .
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
