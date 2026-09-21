@@ -357,6 +357,20 @@ target_include_directories(audioclipstore_security_test PRIVATE src/core)
 target_link_libraries(audioclipstore_security_test PRIVATE Qt::Core)
 add_test(NAME AudioClipStoreSecurityTest COMMAND audioclipstore_security_test)
 
+# Pure logic, no CGEvent/AX calls: the chunk-boundary math the mac text
+# injector uses to keep long dictated passages under
+# CGEventKeyboardSetUnicodeString's per-event limit without splitting a
+# surrogate pair (e.g. an emoji) across two events.
+if(APPLE)
+    add_executable(textinjector_mac_chunking_test
+        tests/textinjector_mac_chunking_test.cpp
+        src/platform/textinjector_mac_chunking.h
+    )
+    target_include_directories(textinjector_mac_chunking_test PRIVATE src/platform)
+    target_link_libraries(textinjector_mac_chunking_test PRIVATE Qt::Core)
+    add_test(NAME TextInjectorMacChunkingTest COMMAND textinjector_mac_chunking_test)
+endif()
+
 install(TARGETS Whisperlet
     BUNDLE  DESTINATION .
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
