@@ -371,6 +371,25 @@ if(APPLE)
     add_test(NAME TextInjectorMacChunkingTest COMMAND textinjector_mac_chunking_test)
 endif()
 
+# AudioRecorder::process() carries the denoise/condition/resample pipeline
+# that stop() used to run inline on the UI thread; this locks down that
+# running it via QtConcurrent::run() (as MainWindow now does) still produces
+# byte-identical output to running it synchronously.
+qt_add_executable(audiorecorder_process_test
+    tests/audiorecorder_process_test.cpp
+    src/core/audiorecorder.h
+    src/core/audiorecorder.cpp
+    src/core/audioutil.h
+    src/core/audioutil.cpp
+)
+target_include_directories(audiorecorder_process_test PRIVATE src/core)
+target_link_libraries(audiorecorder_process_test PRIVATE
+    Qt::Core
+    Qt::Multimedia
+    Qt::Concurrent
+)
+add_test(NAME AudioRecorderProcessTest COMMAND audiorecorder_process_test)
+
 install(TARGETS Whisperlet
     BUNDLE  DESTINATION .
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}

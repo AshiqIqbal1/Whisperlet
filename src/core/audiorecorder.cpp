@@ -42,8 +42,8 @@ AudioRecorder::AudioRecorder(QObject *parent)
 
 AudioRecorder::~AudioRecorder()
 {
-    // stop() allocates (QSettings, std::vector growth) and destructors must
-    // never let an exception escape, so swallow anything it throws here.
+    // stop() allocates (std::vector growth) and destructors must never let
+    // an exception escape, so swallow anything it throws here.
     try {
         if (m_source)
             stop();
@@ -155,7 +155,7 @@ void AudioRecorder::onReadyRead()
     }
 }
 
-std::vector<float> AudioRecorder::stop()
+AudioRecorder::RawRecording AudioRecorder::stop()
 {
     if (!m_source)
         return {};
@@ -165,32 +165,35 @@ std::vector<float> AudioRecorder::stop()
     m_source = nullptr;
     m_device = nullptr;
 
-    const int captureRate = m_format.sampleRate();
+    RawRecording raw;
+    raw.samples = std::move(m_samples);
+    raw.captureRate = m_format.sampleRate();
+
+    m_samples.clear();
+    m_pending.clear();
+    return raw;
+}
+
+AudioRecorder::ProcessedRecording AudioRecorder::process(RawRecording raw, bool suppressNoise)
+{
+    const int captureRate = raw.captureRate;
 
     // Strip the steady background first, so the AGC below measures speech
     // against a cleaned floor instead of amplifying room noise with it.
-    if (QSettings().value(QStringLiteral("suppressNoise"), true).toBool())
-        AudioUtil::denoise(m_samples, captureRate);
+    if (suppressNoise)
+        AudioUtil::denoise(raw.samples, captureRate);
 
     // Condition ONCE at the native rate — high-pass + speech-level AGC +
     // limiter — so any mic at any system gain gives the same healthy signal
     // with no manual OS settings.
-    AudioUtil::condition(m_samples, captureRate);
+    AudioUtil::condition(raw.samples, captureRate);
 
+    ProcessedRecording result;
     // Keep the full-quality version for playback; hand the model its 16kHz.
-    m_nativeAudio = m_samples;
-    m_nativeRate = captureRate;
-
-    std::vector<float> result = captureRate == kTargetRate
-        ? std::move(m_samples)
-        : AudioUtil::resample(std::move(m_samples), captureRate, kTargetRate);
-
-    m_samples.clear();
-    m_pending.clear();
+    result.nativeAudio = raw.samples;
+    result.nativeRate = captureRate;
+    result.transcribeSamples = captureRate == kTargetRate
+        ? std::move(raw.samples)
+        : AudioUtil::resample(std::move(raw.samples), captureRate, kTargetRate);
     return result;
-}
-
-std::vector<float> AudioRecorder::takeNativeAudio()
-{
-    return std::move(m_nativeAudio);
 }
