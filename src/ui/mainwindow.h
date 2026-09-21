@@ -1,6 +1,7 @@
 #ifndef MAINWINDOW_H
 #define MAINWINDOW_H
 
+#include "audiorecorder.h"
 #include "transcriptcard.h"
 
 #include <QElapsedTimer>
@@ -42,6 +43,7 @@ protected:
 
 private slots:
     void toggleRecording();
+    void onRecordingProcessed(); // denoise/condition/resample finished off the UI thread
     void applyFilter(const QString &needle);
     void openSettings();
 
@@ -94,6 +96,7 @@ private:
     std::unique_ptr<WhisperEngine> m_engine;
     QFutureWatcher<QString> m_transcribeWatcher;
     QFutureWatcher<bool> m_preloadWatcher;
+    QFutureWatcher<AudioRecorder::ProcessedRecording> m_processWatcher;
     RecordingPill *m_pill = nullptr;
     bool m_transcribing = false;
     bool m_dictating = false; // current recording started via the global hotkey

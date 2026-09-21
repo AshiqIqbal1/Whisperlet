@@ -121,6 +121,9 @@ MainWindow::MainWindow(QWidget *parent)
     m_statusTimer->setSingleShot(true);
     connect(m_statusTimer, &QTimer::timeout, this, [this] { m_status->clear(); });
 
+    connect(&m_processWatcher, &QFutureWatcher<AudioRecorder::ProcessedRecording>::finished,
+            this, &MainWindow::onRecordingProcessed);
+
     connect(&m_transcribeWatcher, &QFutureWatcher<QString>::finished, this, [this] {
         m_transcribing = false;
         m_pill->hide();
@@ -270,6 +273,8 @@ void MainWindow::closeEvent(QCloseEvent *event)
     // Let workers finish before the engine is torn down.
     if (m_preloadWatcher.isRunning())
         m_preloadWatcher.waitForFinished();
+    if (m_processWatcher.isRunning())
+        m_processWatcher.waitForFinished();
     if (m_transcribeWatcher.isRunning())
         m_transcribeWatcher.waitForFinished();
     persist();
@@ -572,14 +577,14 @@ void MainWindow::toggleRecording()
             m_pill->showRecording();
         flashStatus(tr("Recording…"));
     } else {
-        std::vector<float> samples = m_recorder->stop();
+        AudioRecorder::RawRecording raw = m_recorder->stop();
         m_record->setRecording(false);
 
         const bool dictated = m_dictating;
         m_dictating = false;
 
         const int durationSec = int(m_recordClock.elapsed() / 1000);
-        if (samples.size() < 16000 / 2) { // < 0.5s of audio — accidental tap
+        if (raw.samples.size() < size_t(raw.captureRate) / 2) { // < 0.5s — accidental tap
             m_pill->hide();
             flashStatus(tr("Recording too short"));
             return;
@@ -587,11 +592,36 @@ void MainWindow::toggleRecording()
         if (dictated)
             m_pill->showTranscribing();
 
-        // Store the full-quality copy for playback; the model gets 16kHz.
-        m_pendingClipAudio = m_recorder->takeNativeAudio();
-        m_pendingClipRate = m_recorder->nativeRate();
-        runTranscription(std::move(samples), durationSec, QString(), dictated);
+        // Denoise/condition/resample is real DSP work (can run well past a
+        // frame budget), so it runs off the UI thread; m_transcribing blocks
+        // a new recording from starting mid-process, same as it does during
+        // the whisper pass itself.
+        const bool suppressNoise = QSettings().value(QStringLiteral("suppressNoise"), true).toBool();
+        m_transcribing = true;
+        flashStatus(tr("Processing…"));
+
+        QVariantMap job;
+        job[QStringLiteral("durationSec")] = durationSec;
+        job[QStringLiteral("dictated")] = dictated;
+        m_processWatcher.setProperty("job", job);
+        m_processWatcher.setFuture(QtConcurrent::run(
+            &AudioRecorder::process, std::move(raw), suppressNoise));
     }
+}
+
+void MainWindow::onRecordingProcessed()
+{
+    m_transcribing = false;
+    AudioRecorder::ProcessedRecording processed = m_processWatcher.result();
+
+    const auto props = m_processWatcher.property("job").toMap();
+    const int durationSec = props.value(QStringLiteral("durationSec")).toInt();
+    const bool dictated = props.value(QStringLiteral("dictated")).toBool();
+
+    // Store the full-quality copy for playback; the model gets 16kHz.
+    m_pendingClipAudio = std::move(processed.nativeAudio);
+    m_pendingClipRate = processed.nativeRate;
+    runTranscription(std::move(processed.transcribeSamples), durationSec, QString(), dictated);
 }
 
 void MainWindow::runTranscription(std::vector<float> samples, int durationSec,

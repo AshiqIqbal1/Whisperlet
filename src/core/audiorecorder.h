@@ -27,19 +27,35 @@ public:
     // device is available or the format isn't supported.
     bool start();
 
-    // Stops capturing and returns everything captured so far as mono
-    // float32 samples in [-1, 1], ready to hand to WhisperEngine::transcribe.
-    std::vector<float> stop();
+    // Everything captured so far, still raw (unprocessed) at the device's
+    // native rate. Cheap: no DSP runs here, so this is safe to call on the
+    // UI thread.
+    struct RawRecording {
+        std::vector<float> samples;
+        int captureRate = 16000;
+    };
 
-    // Always 16000 — stop() resamples if the device captured at a
+    // Result of process()ing a RawRecording: denoised + conditioned audio,
+    // both as the model's 16kHz mono float32 and as a full-quality native-rate
+    // copy for playback.
+    struct ProcessedRecording {
+        std::vector<float> transcribeSamples; // 16kHz, ready for WhisperEngine::transcribe
+        std::vector<float> nativeAudio;       // native rate, for AudioClipStore/playback
+        int nativeRate = 16000;
+    };
+
+    // Stops capturing and returns the raw samples. Does no DSP, so this
+    // returns immediately and is safe to call from the UI thread.
+    RawRecording stop();
+
+    // Runs the (potentially slow) denoise + condition + resample pipeline.
+    // Pure function of its arguments, so it's meant to be run off the UI
+    // thread, e.g. via QtConcurrent::run.
+    static ProcessedRecording process(RawRecording raw, bool suppressNoise);
+
+    // Always 16000 — process() resamples if the device captured at a
     // different native rate, so callers never need to branch on this.
     static int sampleRate() { return 16000; }
-
-    // Full-quality (native rate) copy of the last recording, conditioned but
-    // not downsampled — this is what gets stored for playback so clips don't
-    // sound like a phone call. Valid after stop(); moves out of the recorder.
-    std::vector<float> takeNativeAudio();
-    int nativeRate() const { return m_nativeRate; }
 
     const QString &lastError() const { return m_lastError; }
 
@@ -55,8 +71,6 @@ private:
     QIODevice *m_device = nullptr;
     QByteArray m_pending;   // leftover partial sample from the last chunk
     std::vector<float> m_samples;
-    std::vector<float> m_nativeAudio; // conditioned, still at capture rate
-    int m_nativeRate = 16000;
     QString m_lastError;
 
     // Level smoothing: raw per-chunk RMS strobes badly at chunk rate, so we
