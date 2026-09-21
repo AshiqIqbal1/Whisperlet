@@ -28,6 +28,12 @@ void denoise(std::vector<float> &samples, int rate);
 // the time, with no effect on the words.
 std::vector<float> trimSilence(const std::vector<float> &samples, int rate);
 
+// Ramps the first and last few milliseconds to zero. The mic stream starts
+// and stops mid-waveform, so the raw buffer has a step discontinuity at
+// each edge that plays back as a click/pop; a short linear fade removes it
+// without being long enough to audibly clip real speech at the boundary.
+void fadeEdges(std::vector<float> &samples, int rate);
+
 } // namespace AudioUtil
 
 #endif // AUDIOUTIL_H

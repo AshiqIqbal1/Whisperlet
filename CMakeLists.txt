@@ -390,6 +390,16 @@ target_link_libraries(audiorecorder_process_test PRIVATE
 )
 add_test(NAME AudioRecorderProcessTest COMMAND audiorecorder_process_test)
 
+# No large sample-to-sample jump at the very start/end of a processed clip;
+# see AudioUtil::fadeEdges for the click/pop fix this locks in.
+qt_add_executable(audioutil_fade_test
+    tests/audioutil_fade_test.cpp
+    src/core/audioutil.h
+    src/core/audioutil.cpp
+)
+target_include_directories(audioutil_fade_test PRIVATE src/core)
+add_test(NAME AudioUtilFadeTest COMMAND audioutil_fade_test)
+
 install(TARGETS Whisperlet
     BUNDLE  DESTINATION .
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}

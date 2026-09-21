@@ -279,6 +279,23 @@ void AudioUtil::denoise(std::vector<float> &samples, int rate)
             samples[i] = out[i] / norm[i];
 }
 
+void AudioUtil::fadeEdges(std::vector<float> &samples, int rate)
+{
+    if (rate <= 0 || samples.empty())
+        return;
+
+    constexpr int kFadeMs = 5;
+    const size_t fadeLen = std::min(samples.size() / 2, size_t(rate) * kFadeMs / 1000);
+    if (fadeLen == 0)
+        return;
+
+    for (size_t i = 0; i < fadeLen; ++i) {
+        const float gain = float(i) / float(fadeLen);
+        samples[i] *= gain;
+        samples[samples.size() - 1 - i] *= gain;
+    }
+}
+
 std::vector<float> AudioUtil::trimSilence(const std::vector<float> &samples, int rate)
 {
     if (rate <= 0 || samples.empty())

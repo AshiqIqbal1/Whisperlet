@@ -189,6 +189,12 @@ AudioRecorder::ProcessedRecording AudioRecorder::process(RawRecording raw, bool 
     AudioUtil::condition(raw.samples, captureRate);
 
     ProcessedRecording result;
+
+    // The mic stream starts/stops mid-waveform, leaving a step at each edge
+    // that plays back as a click/pop; a short fade removes it before the
+    // buffer is split off for playback and transcription.
+    AudioUtil::fadeEdges(raw.samples, captureRate);
+
     // Keep the full-quality version for playback; hand the model its 16kHz.
     result.nativeAudio = raw.samples;
     result.nativeRate = captureRate;
