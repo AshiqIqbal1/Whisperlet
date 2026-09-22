@@ -31,7 +31,48 @@ env:
   QT_VERSION: '6.9.*'
 
 jobs:
+  # A PR that only edits prose (README, SECURITY.md, the README screenshot)
+  # cannot change what the compiler sees, so there is nothing to build.
+  #
+  # The filter lives in a job rather than in `on.pull_request.paths-ignore`
+  # because static-analysis/macos/windows are required status checks: a
+  # workflow skipped by a trigger path filter leaves its checks "Pending"
+  # forever and blocks the merge, whereas a job skipped by an `if:` reports
+  # success. See GitHub's "Handling skipped but required checks".
+  #
+  # assets/ is deliberately not ignored wholesale: whisperlet.icns,
+  # whisperlet.ico and icon-64.png are compiled into the binaries. Only the
+  # two images that exist purely for humans are listed.
+  changes:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      # Empty when the filter step is skipped (push, tag, workflow_call),
+      # which is exactly when everything should be built.
+      build: ${{ steps.filter.outputs.build || 'true' }}
+    steps:
+      - uses: dorny/paths-filter@v4
+        id: filter
+        if: github.event_name == 'pull_request'
+        with:
+          # 'some-with-excludes': true when a changed file matches '**' and
+          # none of the '!' rules, i.e. when anything outside the prose set
+          # was touched.
+          predicate-quantifier: 'some-with-excludes'
+          filters: |
+            build:
+              - '**'
+              - '!**/*.md'
+              - '!LICENSE'
+              - '!.github/ISSUE_TEMPLATE/**'
+              - '!assets/screenshot.png'
+              - '!assets/logo-source.png'
+
   static-analysis:
+    needs: changes
+    if: needs.changes.outputs.build == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -67,6 +108,8 @@ jobs:
             src/
 
   macos:
+    needs: changes
+    if: needs.changes.outputs.build == 'true'
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
@@ -78,8 +121,30 @@ jobs:
           modules: 'qtmultimedia'
           cache: true
 
+      # ccache carries the object files over from the previous run, so a PR
+      # that touches a couple of translation units no longer recompiles the
+      # whole tree plus vendored whisper.cpp. The compiler version is part of
+      # the key: a runner image shipping a new Clang starts a fresh cache
+      # instead of accumulating entries it can never hit.
+      - name: Record compiler version
+        id: cc
+        run: echo "version=$(clang -dumpversion)" >> "$GITHUB_OUTPUT"
+
+      - name: Set up ccache
+        uses: hendrikmuhs/ccache-action@v1
+        with:
+          key: macos-${{ runner.arch }}-clang-${{ steps.cc.outputs.version }}
+          # Same string: the action appends a timestamp to the key it saves
+          # under, so the restore key has to be the full prefix to match it.
+          restore-keys: macos-${{ runner.arch }}-clang-${{ steps.cc.outputs.version }}
+          max-size: 500M
+
       - name: Configure
-        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+        run: |
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+            -DCMAKE_OBJCXX_COMPILER_LAUNCHER=ccache
 
       - name: Build
         run: cmake --build build -j3
@@ -102,6 +167,8 @@ jobs:
           path: Whisperlet-macos-arm64.dmg
 
   windows:
+    needs: changes
+    if: needs.changes.outputs.build == 'true'
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -127,8 +194,23 @@ jobs:
           install_runtime: false
           cache: true
 
+      # sccache rather than ccache here: ccache's MSVC support is partial,
+      # sccache handles cl.exe properly. Keyed on the MSVC toolset version
+      # (exported by msvc-dev-cmd above) so a toolchain bump starts fresh.
+      # Release builds emit no PDBs, which is what keeps cl.exe cacheable.
+      - name: Set up sccache
+        uses: hendrikmuhs/ccache-action@v1
+        with:
+          variant: sccache
+          key: windows-${{ runner.arch }}-msvc-${{ env.VCToolsVersion }}
+          restore-keys: windows-${{ runner.arch }}-msvc-${{ env.VCToolsVersion }}
+          max-size: 500M
+
       - name: Configure
-        run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+        run: >
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+          -DCMAKE_C_COMPILER_LAUNCHER=sccache
+          -DCMAKE_CXX_COMPILER_LAUNCHER=sccache
 
       - name: Build
         run: cmake --build build -j3
