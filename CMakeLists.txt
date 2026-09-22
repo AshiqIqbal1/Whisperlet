@@ -407,7 +407,6 @@ add_test(NAME AudioUtilFadeTest COMMAND audioutil_fade_test)
 # names were drawn with nothing behind them.
 qt_add_executable(devicemenu_test
     tests/devicemenu_test.cpp
-    src/ui/devicemenu.h
     src/ui/theme.h
     src/ui/theme.cpp
 )

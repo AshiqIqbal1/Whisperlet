@@ -4,7 +4,6 @@
 #include "audioutil.h"
 #include "audiofiledecoder.h"
 #include "audiorecorder.h"
-#include "devicemenu.h"
 #include "globalhotkey.h"
 #include "icons.h"
 #include "modelcatalog.h"
@@ -25,7 +24,6 @@
 #include <QCloseEvent>
 #include <QDragEnterEvent>
 #include <QDropEvent>
-#include <QFontMetrics>
 #include <QFrame>
 #include <QHBoxLayout>
 #include <QKeyEvent>
@@ -371,7 +369,6 @@ QWidget *MainWindow::buildFooter()
     connect(mic, &QToolButton::clicked, this, [this, mic] {
         // Fresh menu on every click — device list changes as mics (un)plug.
         QMenu menu(this);
-        menu.setToolTipsVisible(true); // elided names show in full on hover
         const QByteArray currentId = QSettings().value(QStringLiteral("inputDeviceId")).toByteArray();
 
         auto *systemDefault = menu.addAction(tr("System default"));
@@ -383,13 +380,8 @@ QWidget *MainWindow::buildFooter()
         });
 
         const auto devices = QMediaDevices::audioInputs();
-        const QFontMetrics fm(menu.font());
         for (const QAudioDevice &d : devices) {
-            const QString name = d.description();
-            const QString label = deviceMenuLabel(fm, name);
-            auto *act = menu.addAction(label);
-            if (label != name)
-                act->setToolTip(name);
+            auto *act = menu.addAction(d.description());
             act->setCheckable(true);
             act->setChecked(d.id() == currentId);
             connect(act, &QAction::triggered, this, [this, d] {

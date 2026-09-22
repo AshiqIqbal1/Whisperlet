@@ -5,7 +5,6 @@
 // the names ended up drawn over the desktop with no panel behind them.
 // Requires QT_QPA_PLATFORM=offscreen (set by the test runner).
 
-#include "devicemenu.h"
 #include "theme.h"
 
 #include <QAction>
@@ -18,9 +17,6 @@
 
 namespace {
 int failures = 0;
-
-// Widest the picker may grow: it drops out of a 560px window.
-constexpr int kWindowW = 560;
 
 // Left/right padding QMenu::item reserves in the stylesheet: the check
 // column plus the trailing gap. Text has to fit in what is left.
@@ -42,12 +38,8 @@ void populate(QMenu &menu, const QStringList &devices, bool systemDefaultChecked
     systemDefault->setCheckable(true);
     systemDefault->setChecked(systemDefaultChecked);
 
-    const QFontMetrics fm(menu.font());
     for (const QString &name : devices) {
-        const QString label = deviceMenuLabel(fm, name);
-        auto *act = menu.addAction(label);
-        if (label != name)
-            act->setToolTip(name);
+        auto *act = menu.addAction(name);
         act->setCheckable(true);
     }
 }
@@ -90,15 +82,13 @@ int main(int argc, char **argv)
         check(opaque, "menu paints an opaque panel behind its items");
     }
 
-    // Every name stays inside the panel, and the panel stays inside the
-    // window it drops out of even with a long device name.
+    // Every name stays inside the panel, however long the device name is:
+    // the menu sizes itself to its widest item.
     {
         QMenu menu;
         populate(menu, devices, true);
         menu.ensurePolished();
         menu.resize(menu.sizeHint());
-
-        check(menu.width() <= kWindowW, "menu is no wider than the window it pops up over");
 
         const QFontMetrics fm(menu.font());
         bool contained = true;
@@ -109,27 +99,6 @@ int main(int argc, char **argv)
                 contained = false;
         }
         check(contained, "every item's text fits inside the panel");
-    }
-
-    // Long names are elided (with the full name kept as a tooltip); short
-    // ones are left alone.
-    {
-        QMenu menu;
-        populate(menu, devices, true);
-        const QFontMetrics fm(menu.font());
-
-        const QString shortName = QStringLiteral("MacBook Pro Microphone");
-        check(deviceMenuLabel(fm, shortName) == shortName, "a short device name is not elided");
-
-        const QString longName(200, QLatin1Char('W'));
-        const QString elided = deviceMenuLabel(fm, longName);
-        check(elided != longName, "an over-long device name is elided");
-        check(fm.horizontalAdvance(elided) <= kDeviceNameMaxWidth,
-              "the elided name fits the width cap");
-
-        QAction *last = menu.actions().constLast();
-        check(last->toolTip() == devices.constLast(),
-              "an elided entry keeps the full name in its tooltip");
     }
 
     // The selection checkmark still draws: the checked entry differs from the
