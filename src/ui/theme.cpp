@@ -149,6 +149,7 @@ QMenu::item {
     padding: 6px 14px 6px 26px;
 }
 QMenu::item:selected { background: #303038; }
+QMenu::item:disabled { color: #6E6E77; }
 QMenu::indicator {
     width: 14px;
     height: 14px;
