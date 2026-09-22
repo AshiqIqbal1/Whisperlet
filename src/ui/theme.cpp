@@ -130,6 +130,31 @@ QToolButton#footerBtn:hover { background: #292930; }
     line-height: 24px;
 }
 
+/* ---- popup menus (input device picker) ----
+   QMenu is a QWidget, so the transparent background at the top of this sheet
+   applies to it too. Once any rule matches a menu Qt stops drawing the native
+   popup, which left the device names floating over whatever was behind the
+   window with no panel under them. Paint the panel and the items here. */
+QMenu {
+    background: #1E1E21;
+    border: 1px solid #303036;
+    border-radius: 10px;
+    padding: 4px;
+}
+QMenu::item {
+    background: transparent;
+    border-radius: 6px;
+    color: #E8E8EC;
+    /* left padding keeps the text clear of the check column */
+    padding: 6px 14px 6px 26px;
+}
+QMenu::item:selected { background: #303038; }
+QMenu::indicator {
+    width: 14px;
+    height: 14px;
+    margin-left: 8px;
+}
+
 /* ---- scroll area ---- */
 QScrollArea, #scrollBody { background: transparent; border: none; }
 
