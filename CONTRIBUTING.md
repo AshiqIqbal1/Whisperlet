@@ -23,4 +23,6 @@ Branch off `main` and open your PR against `main`. CI runs on every PR:
 - `macos`: configure and build with Qt 6 on macOS
 - `windows`: configure and build with Qt 6 on Windows
 
-All three must pass before a PR can be merged.
+All three must pass before a PR can be merged. A PR that only touches
+prose (markdown, `LICENSE`, the README screenshot, issue templates) skips
+all three, which GitHub reports as success so the PR is still mergeable.
