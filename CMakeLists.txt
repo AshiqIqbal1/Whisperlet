@@ -400,6 +400,26 @@ qt_add_executable(audioutil_fade_test
 target_include_directories(audioutil_fade_test PRIVATE src/core)
 add_test(NAME AudioUtilFadeTest COMMAND audioutil_fade_test)
 
+# Builds the input-device picker menu exactly as MainWindow's mic button
+# does, under the app's global stylesheet, and checks the popup paints a
+# panel with every device name contained in it. Covers #27, where the
+# sheet's transparent QWidget background applied to QMenu as well and the
+# names were drawn with nothing behind them.
+qt_add_executable(devicemenu_test
+    tests/devicemenu_test.cpp
+    src/ui/theme.h
+    src/ui/theme.cpp
+)
+target_include_directories(devicemenu_test PRIVATE src/ui)
+target_link_libraries(devicemenu_test PRIVATE
+    Qt::Core
+    Qt::Gui
+    Qt::Widgets
+)
+add_test(NAME DeviceMenuTest COMMAND devicemenu_test)
+set_tests_properties(DeviceMenuTest PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
 install(TARGETS Whisperlet
     BUNDLE  DESTINATION .
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}

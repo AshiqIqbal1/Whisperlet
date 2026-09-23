@@ -369,6 +369,9 @@ QWidget *MainWindow::buildFooter()
     connect(mic, &QToolButton::clicked, this, [this, mic] {
         // Fresh menu on every click — device list changes as mics (un)plug.
         QMenu menu(this);
+        // The sheet rounds the popup's corners; translucency is what lets the
+        // area outside that radius stay clear, same as #root and the pill.
+        menu.setAttribute(Qt::WA_TranslucentBackground, true);
         const QByteArray currentId = QSettings().value(QStringLiteral("inputDeviceId")).toByteArray();
 
         auto *systemDefault = menu.addAction(tr("System default"));
