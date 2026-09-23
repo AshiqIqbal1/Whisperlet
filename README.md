@@ -77,6 +77,8 @@ the app conditions every take automatically, with no settings to tune:
   background, speech within 0.3 dB, SNR 18.6 dB to 37.7 dB)
 - automatic gain so a quiet microphone and a hot one both land at the same
   level, then a limiter
+- start/end of the clip faded in over a few milliseconds to remove the
+  click/pop from the mic stream starting and stopping mid-waveform
 - silence trimmed before transcription, since whisper costs time per second
   of audio and dictation is largely pauses
 
