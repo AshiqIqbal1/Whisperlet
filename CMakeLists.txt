@@ -92,6 +92,26 @@ if(NOT MSVC)
     endforeach()
 endif()
 
+# ASan + UBSan for our own code (the app and every test), used by the
+# sanitizers CI job. Added after FetchContent_MakeAvailable on purpose so
+# whisper.cpp/ggml stay uninstrumented: they are vendored, and the ASan
+# runtime still catches heap misuse of buffers we hand across that
+# boundary. UBSan is non-recoverable so a finding fails the test instead of
+# only printing a warning.
+option(WHISPERLET_SANITIZE "Build with AddressSanitizer and UndefinedBehaviorSanitizer" OFF)
+if(WHISPERLET_SANITIZE)
+    if(MSVC)
+        message(FATAL_ERROR "WHISPERLET_SANITIZE needs Clang or GCC")
+    endif()
+    set(WHISPERLET_SANITIZER_FLAGS
+        -fsanitize=address,undefined
+        -fno-sanitize-recover=all
+        -fno-omit-frame-pointer
+    )
+    add_compile_options(${WHISPERLET_SANITIZER_FLAGS})
+    add_link_options(${WHISPERLET_SANITIZER_FLAGS})
+endif()
+
 configure_file(
     resources/version.h.in
     ${CMAKE_CURRENT_BINARY_DIR}/generated/version.h
@@ -419,6 +439,13 @@ target_link_libraries(devicemenu_test PRIVATE
 add_test(NAME DeviceMenuTest COMMAND devicemenu_test)
 set_tests_properties(DeviceMenuTest PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+# Every *_test executable above, so CI can build just the tests without
+# compiling the app and vendored whisper.cpp. Collected rather than listed
+# so a new test is picked up without touching this.
+get_property(whisperlet_targets DIRECTORY PROPERTY BUILDSYSTEM_TARGETS)
+list(FILTER whisperlet_targets INCLUDE REGEX "_test$")
+add_custom_target(whisperlet_tests DEPENDS ${whisperlet_targets})
 
 install(TARGETS Whisperlet
     BUNDLE  DESTINATION .

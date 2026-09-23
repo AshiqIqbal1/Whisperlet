@@ -42,10 +42,12 @@ int main(int argc, char **argv)
     const std::vector<float> original = makeTone(captureRate, 1.5);
 
     // Reference: run the exact same DSP pipeline synchronously, the way
-    // AudioRecorder::stop() used to do it inline on the UI thread.
+    // AudioRecorder::stop() used to do it inline on the UI thread, plus the
+    // edge fade process() now applies after conditioning.
     std::vector<float> reference = original;
     AudioUtil::denoise(reference, captureRate);
     AudioUtil::condition(reference, captureRate);
+    AudioUtil::fadeEdges(reference, captureRate);
     std::vector<float> referenceNative = reference;
     std::vector<float> referenceTranscribe =
         AudioUtil::resample(std::move(reference), captureRate, AudioUtil::kWhisperRate);
@@ -83,6 +85,7 @@ int main(int argc, char **argv)
     // QSettings-gated branch in stop() did.
     std::vector<float> noDenoiseRef = original;
     AudioUtil::condition(noDenoiseRef, captureRate);
+    AudioUtil::fadeEdges(noDenoiseRef, captureRate);
 
     AudioRecorder::RawRecording raw2;
     raw2.samples = original;
