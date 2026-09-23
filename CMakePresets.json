@@ -16,6 +16,15 @@
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "Debug"
             }
+        },
+        {
+            "name": "sanitize",
+            "displayName": "Debug + ASan/UBSan",
+            "binaryDir": "${sourceDir}/build/sanitize",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
+                "WHISPERLET_SANITIZE": "ON"
+            }
         }
     ],
     "buildPresets": [
@@ -26,6 +35,10 @@
         {
             "name": "debug",
             "configurePreset": "debug"
+        },
+        {
+            "name": "sanitize",
+            "configurePreset": "sanitize"
         }
     ]
 }

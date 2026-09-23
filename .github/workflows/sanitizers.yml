@@ -1,0 +1,68 @@
+name: sanitizers
+
+# ASan + UBSan build of the tests (issue #2). Kept out of build.yml so it
+# never slows down or blocks the required static-analysis/macos/windows
+# checks, and so release.yml's workflow_call of build.yml doesn't run it.
+# Not a required check, which is why a plain trigger path filter is fine
+# here (see the `changes` job in build.yml for why it isn't there).
+on:
+  push:
+    branches: [main]
+  pull_request:
+    paths-ignore:
+      - '**/*.md'
+      - 'LICENSE'
+      - '.github/ISSUE_TEMPLATE/**'
+      - 'assets/screenshot.png'
+      - 'assets/logo-source.png'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  QT_VERSION: '6.9.*'
+
+jobs:
+  asan-ubsan:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: ${{ env.QT_VERSION }}
+          modules: 'qtmultimedia'
+          cache: true
+
+      - name: Record compiler version
+        id: cc
+        run: echo "version=$(clang -dumpversion)" >> "$GITHUB_OUTPUT"
+
+      # Own key: instrumented objects never match the plain Release ones.
+      - name: Set up ccache
+        uses: hendrikmuhs/ccache-action@v1
+        with:
+          key: macos-${{ runner.arch }}-clang-${{ steps.cc.outputs.version }}-sanitize
+          restore-keys: macos-${{ runner.arch }}-clang-${{ steps.cc.outputs.version }}-sanitize
+          max-size: 300M
+
+      - name: Configure
+        run: |
+          cmake --preset sanitize \
+            -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+            -DCMAKE_OBJCXX_COMPILER_LAUNCHER=ccache
+
+      # Tests only: none of them link whisper.cpp, so this skips compiling
+      # the vendored library and the app entirely.
+      - name: Build tests
+        run: cmake --build build/sanitize --target whisperlet_tests -j3
+
+      - name: Test
+        working-directory: build/sanitize
+        env:
+          ASAN_OPTIONS: halt_on_error=1:strict_string_checks=1:detect_stack_use_after_return=1
+          UBSAN_OPTIONS: print_stacktrace=1
+        run: ctest --output-on-failure
