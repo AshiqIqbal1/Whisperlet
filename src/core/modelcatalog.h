@@ -26,6 +26,11 @@ QString downloadUrl(const ModelInfo &info);
 
 QString humanSize(qint64 bytes);
 
+// True for exactly 64 lowercase hex digits, the form QCryptographicHash
+// produces and the catalog pins. Anything else must fail verification
+// rather than be skipped.
+bool isWellFormedSha256(const QString &hash);
+
 } // namespace ModelCatalog
 
 #endif // MODELCATALOG_H
