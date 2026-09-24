@@ -83,7 +83,7 @@ private:
         QString writeError;
     };
 
-    QString expectedSha256(const ModelInfo &info) const;
+    const QString &expectedSha256(const ModelInfo &info) const;
 
     QNetworkAccessManager *m_net = nullptr;
     QMap<QString, DownloadState> m_downloads;

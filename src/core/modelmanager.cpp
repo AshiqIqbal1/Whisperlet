@@ -83,7 +83,7 @@ QString ModelManager::localPath(const QString &id) const
     return QDir(modelsDir()).filePath(info->filename);
 }
 
-QString ModelManager::expectedSha256(const ModelInfo &info) const
+const QString &ModelManager::expectedSha256(const ModelInfo &info) const
 {
 #ifdef WHISPERLET_TESTING
     const auto it = m_testSources.constFind(info.id);
