@@ -133,7 +133,7 @@ QPushButton:disabled { color: #5E5E66; background: #222226; }
     hotkeyHeading->setObjectName(QStringLiteral("sectionHeading"));
     layout->addWidget(hotkeyHeading);
 
-    // Two trigger styles: a key combination, or a single right-side
+    // Two trigger styles: a key combination, or a single
     // modifier tapped on its own (OpenSuperWhisper style).
     m_comboRadio = new QRadioButton(tr("Key combination"), this);
     m_tapRadio = new QRadioButton(tr("Single modifier key"), this);
