@@ -1,5 +1,6 @@
 #include "modelmanager.h"
 
+#include <QDateTime>
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
@@ -37,6 +38,26 @@ bool writeSidecar(const QString &modelPath, const QString &sha256, qint64 size)
         return false;
     }
     return out.commit();
+}
+
+// Like writeSidecar(), but never replaces a sidecar that appeared meanwhile
+// (a download that finished during the hash has already recorded its own).
+bool createSidecar(const QString &modelPath, const QString &sha256, qint64 size)
+{
+    QJsonObject obj;
+    obj.insert(QStringLiteral("sha256"), sha256);
+    obj.insert(QStringLiteral("size"), size);
+
+    QFile out(sidecarPath(modelPath));
+    if (!out.open(QIODevice::WriteOnly | QIODevice::NewOnly))
+        return false;
+    const QByteArray json = QJsonDocument(obj).toJson(QJsonDocument::Compact);
+    if (out.write(json) != json.size() || !out.flush()) {
+        out.close();
+        out.remove();
+        return false;
+    }
+    return true;
 }
 
 // The sidecar is only ever written after the file was hashed and records
@@ -116,6 +137,7 @@ bool ModelManager::verifyLocalFile(const QString &id) const
         return false;
 
     const QString path = localPath(id);
+    const QFileInfo before(path);
     QFile in(path);
     if (!in.open(QIODevice::ReadOnly))
         return false;
@@ -132,7 +154,17 @@ bool ModelManager::verifyLocalFile(const QString &id) const
         size += n;
     }
 
-    return writeSidecar(path, QString::fromLatin1(hash.result().toHex()), size) && isDownloaded(id);
+    in.close();
+
+    // The file may have been replaced (e.g. by a download) while it was being
+    // hashed; the result then describes a file that is no longer there.
+    const QFileInfo after(path);
+    if (after.size() != before.size() || after.lastModified() != before.lastModified()
+        || size != after.size())
+        return isDownloaded(id);
+
+    createSidecar(path, QString::fromLatin1(hash.result().toHex()), size);
+    return isDownloaded(id);
 }
 
 QString ModelManager::activeModelId() const
