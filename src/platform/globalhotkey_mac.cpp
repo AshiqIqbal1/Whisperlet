@@ -5,9 +5,11 @@
 // friends use it).
 //
 // Modifier-tap mode: bare modifiers can't be hotkeys, so this uses a
-// listen-only CGEventTap on flagsChanged/keyDown. That DOES require the
-// Accessibility permission — the same one dictation already asks for.
+// listen-only CGEventTap on flagsChanged, keyDown and mouse-down. That DOES
+// require the Accessibility permission — the same one dictation already
+// asks for.
 #include "globalhotkey.h"
+#include "globalhotkey_mac_keycodes.h"
 
 #include <Carbon/Carbon.h>
 
@@ -90,17 +92,6 @@ UInt32 carbonModifiers(Qt::KeyboardModifiers mods)
     return native;
 }
 
-CGKeyCode rightModKeyCode(GlobalHotkey::ModKey key)
-{
-    switch (key) {
-    case GlobalHotkey::ModKey::RightCmd:   return 0x36; // kVK_RightCommand
-    case GlobalHotkey::ModKey::RightShift: return 0x3C;
-    case GlobalHotkey::ModKey::RightAlt:   return 0x3D; // right option
-    case GlobalHotkey::ModKey::RightCtrl:  return 0x3E;
-    }
-    return 0;
-}
-
 } // namespace
 
 struct GlobalHotkey::Impl
@@ -115,6 +106,7 @@ struct GlobalHotkey::Impl
     CFMachPortRef tap = nullptr;
     CFRunLoopSourceRef tapSource = nullptr;
     CGKeyCode tapKeyCode = 0;
+    CGEventFlags tapDeviceFlag = 0;
     bool tapPending = false; // target modifier is down, no other key seen
 
     static OSStatus hotKeyCallback(EventHandlerCallRef, EventRef event, void *userData)
@@ -129,8 +121,8 @@ struct GlobalHotkey::Impl
     }
 
     // Tap-detection: target modifier pressed then released with nothing else
-    // in between. Any other keypress or modifier change cancels the pending
-    // tap, so holding right-Cmd for a Cmd+C etc never fires.
+    // in between. Any other keypress, modifier change or mouse click cancels
+    // the pending tap, so holding Cmd for a Cmd+C or a Cmd-click never fires.
     static CGEventRef tapCallback(CGEventTapProxy, CGEventType type, CGEventRef event, void *userData)
     {
         auto *impl = static_cast<Impl *>(userData);
@@ -144,20 +136,18 @@ struct GlobalHotkey::Impl
         if (type == kCGEventFlagsChanged) {
             const CGKeyCode code = CGKeyCode(CGEventGetIntegerValueField(event, kCGKeyboardEventKeycode));
             if (code == impl->tapKeyCode) {
-                // Down or up? Down = some modifier flag newly present.
-                // Simplest reliable check: pending toggles on alternate events
-                // for this keycode, cancelled by anything else in between.
-                if (!impl->tapPending) {
+                const bool down = (CGEventGetFlags(event) & impl->tapDeviceFlag) != 0;
+                if (down) {
                     impl->tapPending = true;
-                } else {
+                } else if (impl->tapPending) {
                     impl->tapPending = false;
                     emit impl->owner->activated();
                 }
             } else {
                 impl->tapPending = false; // some other modifier moved
             }
-        } else if (type == kCGEventKeyDown) {
-            impl->tapPending = false; // modifier is being used as a chord
+        } else {
+            impl->tapPending = false; // key or mouse button used as a chord
         }
 
         return event; // listen-only: never swallow
@@ -195,11 +185,15 @@ bool GlobalHotkey::registerNative()
             return false;
         }
 
-        m_impl->tapKeyCode = rightModKeyCode(m_modKey);
+        m_impl->tapKeyCode = CGKeyCode(macModKeyCode(m_modKey));
+        m_impl->tapDeviceFlag = CGEventFlags(macModKeyDeviceFlag(m_modKey));
         m_impl->tapPending = false;
 
         const CGEventMask mask = CGEventMaskBit(kCGEventFlagsChanged)
-                               | CGEventMaskBit(kCGEventKeyDown);
+                               | CGEventMaskBit(kCGEventKeyDown)
+                               | CGEventMaskBit(kCGEventLeftMouseDown)
+                               | CGEventMaskBit(kCGEventRightMouseDown)
+                               | CGEventMaskBit(kCGEventOtherMouseDown);
         m_impl->tap = CGEventTapCreate(kCGSessionEventTap, kCGHeadInsertEventTap,
                                        kCGEventTapOptionListenOnly, mask,
                                        &Impl::tapCallback, m_impl);

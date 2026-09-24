@@ -11,6 +11,10 @@ QString GlobalHotkey::modKeyLabel(ModKey key)
     case ModKey::RightAlt:   return QStringLiteral("Right ⌥");
     case ModKey::RightShift: return QStringLiteral("Right ⇧");
     case ModKey::RightCtrl:  return QStringLiteral("Right ⌃");
+    case ModKey::LeftCmd:    return QStringLiteral("Left ⌘");
+    case ModKey::LeftAlt:    return QStringLiteral("Left ⌥");
+    case ModKey::LeftShift:  return QStringLiteral("Left ⇧");
+    case ModKey::LeftCtrl:   return QStringLiteral("Left ⌃");
     }
 #else
     switch (key) {
@@ -18,9 +22,26 @@ QString GlobalHotkey::modKeyLabel(ModKey key)
     case ModKey::RightAlt:   return QStringLiteral("Right Alt");
     case ModKey::RightShift: return QStringLiteral("Right Shift");
     case ModKey::RightCtrl:  return QStringLiteral("Right Ctrl");
+    case ModKey::LeftCmd:    return QStringLiteral("Left Win");
+    case ModKey::LeftAlt:    return QStringLiteral("Left Alt");
+    case ModKey::LeftShift:  return QStringLiteral("Left Shift");
+    case ModKey::LeftCtrl:   return QStringLiteral("Left Ctrl");
     }
 #endif
     return QString();
+}
+
+QList<GlobalHotkey::ModKey> GlobalHotkey::modKeys()
+{
+#ifdef Q_OS_MAC
+    return {ModKey::RightCmd, ModKey::RightAlt, ModKey::RightShift, ModKey::RightCtrl,
+            ModKey::LeftCmd,  ModKey::LeftAlt,  ModKey::LeftShift,  ModKey::LeftCtrl};
+#else
+    // Left Win opens Start and Left Alt focuses the menu bar on a lone tap,
+    // and the hook only listens, so neither is offered on Windows.
+    return {ModKey::RightCmd, ModKey::RightAlt, ModKey::RightShift, ModKey::RightCtrl,
+            ModKey::LeftShift, ModKey::LeftCtrl};
+#endif
 }
 
 QString GlobalHotkey::comboLabel() const

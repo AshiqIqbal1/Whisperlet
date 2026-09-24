@@ -186,6 +186,7 @@ target_include_directories(Whisperlet PRIVATE
 if(APPLE)
     target_sources(Whisperlet PRIVATE
         src/platform/globalhotkey_mac.cpp
+        src/platform/globalhotkey_mac_keycodes.h
         src/platform/textinjector_mac.cpp
         src/platform/overlaywindow_mac.mm
         assets/whisperlet.icns
@@ -460,6 +461,28 @@ target_link_libraries(devicemenu_test PRIVATE
 add_test(NAME DeviceMenuTest COMMAND devicemenu_test)
 set_tests_properties(DeviceMenuTest PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+# Single-modifier tap keys (#28): each platform lists the right keys with
+# distinct picker labels, saved values keep their meaning, and on macOS each
+# key maps to the side-specific keycode the event tap compares against.
+qt_add_executable(globalhotkey_modkeys_test
+    tests/globalhotkey_modkeys_test.cpp
+    src/platform/globalhotkey.h
+    src/platform/globalhotkey_common.cpp
+    src/platform/globalhotkey_mac_keycodes.h
+)
+target_include_directories(globalhotkey_modkeys_test PRIVATE src/platform)
+target_link_libraries(globalhotkey_modkeys_test PRIVATE Qt::Core Qt::Gui)
+if(APPLE)
+    target_sources(globalhotkey_modkeys_test PRIVATE src/platform/globalhotkey_mac.cpp)
+    target_link_libraries(globalhotkey_modkeys_test PRIVATE
+        "-framework Carbon"
+        "-framework ApplicationServices"
+    )
+elseif(WIN32)
+    target_sources(globalhotkey_modkeys_test PRIVATE src/platform/globalhotkey_win.cpp)
+endif()
+add_test(NAME GlobalHotkeyModKeysTest COMMAND globalhotkey_modkeys_test)
 
 # Every *_test executable above, so CI can build just the tests without
 # compiling the app and vendored whisper.cpp. Collected rather than listed

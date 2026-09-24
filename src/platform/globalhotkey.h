@@ -2,6 +2,7 @@
 #define GLOBALHOTKEY_H
 
 #include <QKeySequence>
+#include <QList>
 #include <QObject>
 
 // Cross-platform "works even when the app isn't focused" hotkey, with two
@@ -26,6 +27,11 @@ public:
         RightAlt,   // ⌥ on mac
         RightShift,
         RightCtrl,
+        // Appended, not interleaved: the value is what QSettings stores.
+        LeftCmd,
+        LeftAlt,
+        LeftShift,
+        LeftCtrl,
     };
 
     explicit GlobalHotkey(QObject *parent = nullptr);
@@ -33,6 +39,8 @@ public:
 
     static QKeySequence defaultSequence() { return QKeySequence(QStringLiteral("Ctrl+Shift+R")); }
     static QString modKeyLabel(ModKey key);
+    // The ModKeys offered on this platform, in the order the settings picker lists them.
+    static QList<ModKey> modKeys();
 
     bool setSequence(const QKeySequence &seq);
     bool setModifierTap(ModKey key);
