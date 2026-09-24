@@ -441,9 +441,9 @@ add_test(NAME DeviceMenuTest COMMAND devicemenu_test)
 set_tests_properties(DeviceMenuTest PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
-# Single-modifier tap keys (#28): every ModKey has its own picker label,
-# survives the int round trip through QSettings, and on macOS maps to the
-# side-specific keycode the event tap compares against.
+# Single-modifier tap keys (#28): each platform lists the right keys with
+# distinct picker labels, saved values keep their meaning, and on macOS each
+# key maps to the side-specific keycode the event tap compares against.
 qt_add_executable(globalhotkey_modkeys_test
     tests/globalhotkey_modkeys_test.cpp
     src/platform/globalhotkey.h

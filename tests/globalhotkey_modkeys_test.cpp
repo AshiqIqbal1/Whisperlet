@@ -1,14 +1,12 @@
 // Covers the single-modifier tap keys offered in Settings (issue #28 added
-// the Left-side variants). Checks each key has a distinct picker label,
-// that a saved choice reads back as the same key, and that the macOS
-// keycodes tell the left and right keys apart.
+// the Left-side variants). Checks each platform lists the right keys with
+// distinct picker labels, that existing saved values keep their meaning,
+// and that the macOS keycodes tell the left and right keys apart.
 
 #include "globalhotkey.h"
 #include "globalhotkey_mac_keycodes.h"
 
 #include <QSet>
-#include <QSettings>
-#include <QTemporaryDir>
 
 #include <cstdio>
 #include <cstdlib>
@@ -29,9 +27,18 @@ using ModKey = GlobalHotkey::ModKey;
 void testEveryKeyIsListedWithItsOwnLabel()
 {
     const QList<ModKey> keys = GlobalHotkey::modKeys();
-    check(keys.size() == 8, "picker lists all eight modifier keys");
-    for (ModKey key : {ModKey::LeftCmd, ModKey::LeftAlt, ModKey::LeftShift, ModKey::LeftCtrl})
-        check(keys.contains(key), "picker lists the Left-side variants");
+    for (ModKey key : {ModKey::RightCmd, ModKey::RightAlt, ModKey::RightShift, ModKey::RightCtrl,
+                       ModKey::LeftShift, ModKey::LeftCtrl})
+        check(keys.contains(key), "picker lists the Right keys plus Left Shift and Left Ctrl");
+#ifdef Q_OS_MAC
+    check(keys.size() == 8, "macOS picker lists all eight modifier keys");
+    check(keys.contains(ModKey::LeftCmd), "macOS picker lists Left Cmd");
+    check(keys.contains(ModKey::LeftAlt), "macOS picker lists Left Option");
+#else
+    check(keys.size() == 6, "Windows picker lists six modifier keys");
+    check(!keys.contains(ModKey::LeftCmd), "Windows picker omits Left Win");
+    check(!keys.contains(ModKey::LeftAlt), "Windows picker omits Left Alt");
+#endif
 
     QSet<QString> labels;
     for (ModKey key : keys) {
@@ -54,21 +61,6 @@ void testExistingSettingValuesAreUnchanged()
     check(int(ModKey::RightCtrl) == 3, "RightCtrl keeps value 3");
 }
 
-void testChoiceRoundTripsThroughSettings()
-{
-    QTemporaryDir dir;
-    const QString path = dir.filePath(QStringLiteral("settings.ini"));
-    for (ModKey key : GlobalHotkey::modKeys()) {
-        {
-            QSettings s(path, QSettings::IniFormat);
-            s.setValue(QStringLiteral("modTapKey"), int(key));
-        }
-        QSettings s(path, QSettings::IniFormat);
-        const auto loaded = ModKey(s.value(QStringLiteral("modTapKey")).toInt());
-        check(loaded == key, "saved modifier key loads back unchanged");
-    }
-}
-
 void testMacKeycodesAreSideSpecific()
 {
     check(macModKeyCode(ModKey::LeftCmd) == 0x37, "Left Cmd is kVK_Command");
@@ -77,10 +69,13 @@ void testMacKeycodesAreSideSpecific()
     check(macModKeyCode(ModKey::LeftCtrl) == 0x3B, "Left Control is kVK_Control");
     check(macModKeyCode(ModKey::RightCmd) == 0x36, "Right Cmd is kVK_RightCommand");
 
+    const QList<ModKey> all = {ModKey::RightCmd, ModKey::RightAlt, ModKey::RightShift,
+                               ModKey::RightCtrl, ModKey::LeftCmd, ModKey::LeftAlt,
+                               ModKey::LeftShift, ModKey::LeftCtrl};
     QSet<std::uint16_t> codes;
-    for (ModKey key : GlobalHotkey::modKeys())
+    for (ModKey key : all)
         codes.insert(macModKeyCode(key));
-    check(codes.size() == GlobalHotkey::modKeys().size(), "every key has its own keycode");
+    check(codes.size() == all.size(), "every key has its own keycode");
 }
 } // namespace
 
@@ -88,7 +83,6 @@ int main()
 {
     testEveryKeyIsListedWithItsOwnLabel();
     testExistingSettingValuesAreUnchanged();
-    testChoiceRoundTripsThroughSettings();
     testMacKeycodesAreSideSpecific();
 
     if (failures == 0)

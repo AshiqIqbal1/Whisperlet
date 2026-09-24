@@ -33,8 +33,15 @@ QString GlobalHotkey::modKeyLabel(ModKey key)
 
 QList<GlobalHotkey::ModKey> GlobalHotkey::modKeys()
 {
+#ifdef Q_OS_MAC
     return {ModKey::RightCmd, ModKey::RightAlt, ModKey::RightShift, ModKey::RightCtrl,
             ModKey::LeftCmd,  ModKey::LeftAlt,  ModKey::LeftShift,  ModKey::LeftCtrl};
+#else
+    // Left Win opens Start and Left Alt focuses the menu bar on a lone tap,
+    // and the hook only listens, so neither is offered on Windows.
+    return {ModKey::RightCmd, ModKey::RightAlt, ModKey::RightShift, ModKey::RightCtrl,
+            ModKey::LeftShift, ModKey::LeftCtrl};
+#endif
 }
 
 QString GlobalHotkey::comboLabel() const
