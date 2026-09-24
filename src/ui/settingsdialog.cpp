@@ -170,14 +170,8 @@ QPushButton:disabled { color: #5E5E66; background: #222226; }
     tapRow->addWidget(m_tapRadio);
 
     m_modCombo = new QComboBox(this);
-    m_modCombo->addItem(GlobalHotkey::modKeyLabel(GlobalHotkey::ModKey::RightCmd),
-                        int(GlobalHotkey::ModKey::RightCmd));
-    m_modCombo->addItem(GlobalHotkey::modKeyLabel(GlobalHotkey::ModKey::RightAlt),
-                        int(GlobalHotkey::ModKey::RightAlt));
-    m_modCombo->addItem(GlobalHotkey::modKeyLabel(GlobalHotkey::ModKey::RightShift),
-                        int(GlobalHotkey::ModKey::RightShift));
-    m_modCombo->addItem(GlobalHotkey::modKeyLabel(GlobalHotkey::ModKey::RightCtrl),
-                        int(GlobalHotkey::ModKey::RightCtrl));
+    for (const GlobalHotkey::ModKey key : GlobalHotkey::modKeys())
+        m_modCombo->addItem(GlobalHotkey::modKeyLabel(key), int(key));
     m_modCombo->setCurrentIndex(m_modCombo->findData(int(m_hotkey->modifierKey())));
     tapRow->addWidget(m_modCombo, 1);
     layout->addLayout(tapRow);

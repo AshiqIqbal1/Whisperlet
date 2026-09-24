@@ -8,6 +8,7 @@
 // listen-only CGEventTap on flagsChanged/keyDown. That DOES require the
 // Accessibility permission — the same one dictation already asks for.
 #include "globalhotkey.h"
+#include "globalhotkey_mac_keycodes.h"
 
 #include <Carbon/Carbon.h>
 
@@ -88,17 +89,6 @@ UInt32 carbonModifiers(Qt::KeyboardModifiers mods)
     if (mods & Qt::AltModifier)     native |= optionKey;
     if (mods & Qt::ShiftModifier)   native |= shiftKey;
     return native;
-}
-
-CGKeyCode rightModKeyCode(GlobalHotkey::ModKey key)
-{
-    switch (key) {
-    case GlobalHotkey::ModKey::RightCmd:   return 0x36; // kVK_RightCommand
-    case GlobalHotkey::ModKey::RightShift: return 0x3C;
-    case GlobalHotkey::ModKey::RightAlt:   return 0x3D; // right option
-    case GlobalHotkey::ModKey::RightCtrl:  return 0x3E;
-    }
-    return 0;
 }
 
 } // namespace
@@ -195,7 +185,7 @@ bool GlobalHotkey::registerNative()
             return false;
         }
 
-        m_impl->tapKeyCode = rightModKeyCode(m_modKey);
+        m_impl->tapKeyCode = CGKeyCode(macModKeyCode(m_modKey));
         m_impl->tapPending = false;
 
         const CGEventMask mask = CGEventMaskBit(kCGEventFlagsChanged)

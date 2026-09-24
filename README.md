@@ -39,7 +39,7 @@ downloads or installs anything for you.
 ## Using it
 
 Open Settings with the gear icon and download a model. Then pick a shortcut,
-either a key combination or a single tap of a right hand modifier key.
+either a key combination or a single tap of a modifier key (left or right hand).
 
 Press the shortcut, a small capsule appears at the top of the screen showing
 that it is listening, and the dot moves with your voice. Click into any text

@@ -49,13 +49,17 @@ UINT winModifiers(Qt::KeyboardModifiers mods)
     return native;
 }
 
-DWORD rightModVk(GlobalHotkey::ModKey key)
+DWORD modKeyVk(GlobalHotkey::ModKey key)
 {
     switch (key) {
     case GlobalHotkey::ModKey::RightCmd:   return VK_RWIN;
     case GlobalHotkey::ModKey::RightAlt:   return VK_RMENU;
     case GlobalHotkey::ModKey::RightShift: return VK_RSHIFT;
     case GlobalHotkey::ModKey::RightCtrl:  return VK_RCONTROL;
+    case GlobalHotkey::ModKey::LeftCmd:    return VK_LWIN;
+    case GlobalHotkey::ModKey::LeftAlt:    return VK_LMENU;
+    case GlobalHotkey::ModKey::LeftShift:  return VK_LSHIFT;
+    case GlobalHotkey::ModKey::LeftCtrl:   return VK_LCONTROL;
     }
     return 0;
 }
@@ -150,7 +154,7 @@ bool GlobalHotkey::isSupported(const QKeySequence &seq)
 bool GlobalHotkey::registerNative()
 {
     if (m_tapMode) {
-        m_impl->tapVk = rightModVk(m_modKey);
+        m_impl->tapVk = modKeyVk(m_modKey);
         m_impl->tapPending = false;
         m_impl->hook = SetWindowsHookExW(WH_KEYBOARD_LL, &Impl::hookProc,
                                          GetModuleHandleW(nullptr), 0);
