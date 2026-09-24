@@ -5,8 +5,9 @@
 // friends use it).
 //
 // Modifier-tap mode: bare modifiers can't be hotkeys, so this uses a
-// listen-only CGEventTap on flagsChanged/keyDown. That DOES require the
-// Accessibility permission — the same one dictation already asks for.
+// listen-only CGEventTap on flagsChanged, keyDown and mouse-down. That DOES
+// require the Accessibility permission — the same one dictation already
+// asks for.
 #include "globalhotkey.h"
 #include "globalhotkey_mac_keycodes.h"
 
