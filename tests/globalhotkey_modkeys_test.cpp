@@ -76,6 +76,16 @@ void testMacKeycodesAreSideSpecific()
     for (ModKey key : all)
         codes.insert(macModKeyCode(key));
     check(codes.size() == all.size(), "every key has its own keycode");
+
+    QSet<std::uint64_t> flags;
+    for (ModKey key : all) {
+        const std::uint64_t flag = macModKeyDeviceFlag(key);
+        check(flag != 0 && (flag & (flag - 1)) == 0, "every key has a single device flag bit");
+        flags.insert(flag);
+    }
+    check(flags.size() == all.size(), "every key has its own device flag");
+    check(macModKeyDeviceFlag(ModKey::LeftShift) == 0x02, "Left Shift is NX_DEVICELSHIFTKEYMASK");
+    check(macModKeyDeviceFlag(ModKey::RightCtrl) == 0x2000, "Right Control is NX_DEVICERCTLKEYMASK");
 }
 } // namespace
 

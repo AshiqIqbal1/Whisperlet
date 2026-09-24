@@ -39,7 +39,7 @@ public:
 
     static QKeySequence defaultSequence() { return QKeySequence(QStringLiteral("Ctrl+Shift+R")); }
     static QString modKeyLabel(ModKey key);
-    // Every ModKey, in the order the settings picker lists them.
+    // The ModKeys offered on this platform, in the order the settings picker lists them.
     static QList<ModKey> modKeys();
 
     bool setSequence(const QKeySequence &seq);
