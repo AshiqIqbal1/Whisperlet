@@ -294,8 +294,29 @@ void testVerifyLocalFile()
     models.removeDownloaded(kId);
     writeFile(path, QByteArray(1000, 'x'));
     check(!models.verifyLocalFile(kId), "mismatching legacy file fails verification");
-    check(!QFileInfo::exists(path + QStringLiteral(".verified")), "mismatching legacy file gets no sidecar");
     check(!models.isDownloaded(kId), "mismatching legacy file does not count as downloaded");
+    check(!models.needsVerification(kId), "mismatching legacy file isn't hashed again on next launch");
+
+    // Swap in matching bytes behind its back: a second verify must not
+    // re-hash, so it still fails.
+    writeFile(path, body);
+    check(!models.verifyLocalFile(kId), "failed verification is not retried");
+    check(!models.isDownloaded(kId), "failed verification still does not count as downloaded");
+
+    // A real download replaces the failed record.
+    StubServer server(body);
+    models.setSourceForTesting(kId, server.url(), sha256Of(body));
+    const QList<QVariant> args = runDownload(models);
+    check(!args.isEmpty() && args.at(1).toBool(), "download after failed verification succeeds");
+    check(models.isDownloaded(kId), "download after failed verification counts as downloaded");
+
+    models.removeDownloaded(kId);
+    writeFile(path, QByteArray(1000, 'x'));
+    models.verifyLocalFile(kId);
+    models.removeDownloaded(kId);
+    writeFile(path, body);
+    check(models.needsVerification(kId), "removing a model clears its failed verification");
+    check(models.verifyLocalFile(kId), "file placed after removal is verified afresh");
 
     // Real catalog hash: arbitrary bytes never pass as a real model.
     ModelManager real;

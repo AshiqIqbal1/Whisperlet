@@ -390,6 +390,7 @@ qt_add_executable(modelmanager_verification_test
     src/core/modelcatalog.cpp
 )
 target_include_directories(modelmanager_verification_test PRIVATE src/core)
+target_compile_definitions(modelmanager_verification_test PRIVATE WHISPERLET_TESTING)
 target_link_libraries(modelmanager_verification_test PRIVATE
     Qt::Core
     Qt::Network

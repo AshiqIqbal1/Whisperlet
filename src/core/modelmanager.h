@@ -21,9 +21,9 @@ class QNetworkReply;
 // downloading last time is still there, whatever didn't gets cleaned up.
 //
 // A model only counts as downloaded once it has a "<file>.verified"
-// sidecar recording the sha256 and size it had when it was checked against
-// the catalog. The file alone is never trusted: whisper.cpp does little
-// validation of what it loads.
+// sidecar recording the sha256 and size it had when it was hashed, and that
+// sha256 is the catalog's. The file alone is never trusted: whisper.cpp does
+// little validation of what it loads.
 class ModelManager : public QObject
 {
     Q_OBJECT
@@ -43,8 +43,9 @@ public:
     // over from an older version. verifyLocalFile() settles it.
     bool needsVerification(const QString &id) const;
 
-    // Hashes the local file once and writes the sidecar if it matches the
-    // catalog. Returns isDownloaded(id) afterwards. Blocking (a full read of
+    // Hashes the local file once and records the result in the sidecar, so
+    // a mismatching file stays not-downloaded without being hashed again on
+    // every launch. Returns isDownloaded(id) afterwards. Blocking (a full read of
     // up to 1.6GB), so call it off the UI thread; it touches no QObject state.
     bool verifyLocalFile(const QString &id) const;
 
@@ -53,9 +54,11 @@ public:
 
     bool isDownloading(const QString &id) const;
 
+#ifdef WHISPERLET_TESTING
     // Serve a model from somewhere else and pin a different hash for it,
     // so tests can drive the real download path against a local server.
     void setSourceForTesting(const QString &id, const QUrl &url, const QString &sha256);
+#endif
 
 public slots:
     void download(const QString &id);
@@ -80,17 +83,19 @@ private:
         QString writeError;
     };
 
+    QString expectedSha256(const ModelInfo &info) const;
+
+    QNetworkAccessManager *m_net = nullptr;
+    QMap<QString, DownloadState> m_downloads;
+
+#ifdef WHISPERLET_TESTING
     struct TestSource
     {
         QUrl url;
         QString sha256;
     };
-
-    QString expectedSha256(const ModelInfo &info) const;
-
-    QNetworkAccessManager *m_net = nullptr;
-    QMap<QString, DownloadState> m_downloads;
     QHash<QString, TestSource> m_testSources;
+#endif
 };
 
 #endif // MODELMANAGER_H

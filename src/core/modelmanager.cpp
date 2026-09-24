@@ -39,8 +39,8 @@ bool writeSidecar(const QString &modelPath, const QString &sha256, qint64 size)
     return out.commit();
 }
 
-// The sidecar is only ever written after the file was hashed against the
-// catalog, so matching it (and the file still being that exact size) is
+// The sidecar is only ever written after the file was hashed and records
+// what it hashed to, so matching the catalog hash (and the file still being that exact size) is
 // what "downloaded" means. An empty or malformed expected hash never
 // matches: no pinned hash means nothing can be trusted, not everything.
 bool sidecarMatches(const QString &modelPath, const QString &expectedSha256)
@@ -85,8 +85,12 @@ QString ModelManager::localPath(const QString &id) const
 
 QString ModelManager::expectedSha256(const ModelInfo &info) const
 {
+#ifdef WHISPERLET_TESTING
     const auto it = m_testSources.constFind(info.id);
-    return it != m_testSources.cend() ? it->sha256 : info.sha256;
+    if (it != m_testSources.cend())
+        return it->sha256;
+#endif
+    return info.sha256;
 }
 
 bool ModelManager::isDownloaded(const QString &id) const
@@ -128,9 +132,7 @@ bool ModelManager::verifyLocalFile(const QString &id) const
         size += n;
     }
 
-    if (QString::fromLatin1(hash.result().toHex()) != expected)
-        return false;
-    return writeSidecar(path, expected, size) && isDownloaded(id);
+    return writeSidecar(path, QString::fromLatin1(hash.result().toHex()), size) && isDownloaded(id);
 }
 
 QString ModelManager::activeModelId() const
@@ -151,10 +153,12 @@ bool ModelManager::isDownloading(const QString &id) const
     return m_downloads.contains(id);
 }
 
+#ifdef WHISPERLET_TESTING
 void ModelManager::setSourceForTesting(const QString &id, const QUrl &url, const QString &sha256)
 {
     m_testSources.insert(id, {url, sha256});
 }
+#endif
 
 void ModelManager::download(const QString &id)
 {
@@ -183,10 +187,12 @@ void ModelManager::download(const QString &id)
         return;
     }
 
-    const auto testSource = m_testSources.constFind(id);
-    QNetworkRequest request(testSource != m_testSources.cend()
-                                ? testSource->url
-                                : QUrl(ModelCatalog::downloadUrl(*info)));
+    QUrl url(ModelCatalog::downloadUrl(*info));
+#ifdef WHISPERLET_TESTING
+    if (const auto it = m_testSources.constFind(id); it != m_testSources.cend())
+        url = it->url;
+#endif
+    QNetworkRequest request(url);
     // Hugging Face serves the actual bytes from a CDN redirect; this policy
     // follows https->https redirects but still refuses a downgrade to http.
     request.setAttribute(QNetworkRequest::RedirectPolicyAttribute,
