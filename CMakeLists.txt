@@ -377,6 +377,27 @@ target_include_directories(audioclipstore_security_test PRIVATE src/core)
 target_link_libraries(audioclipstore_security_test PRIVATE Qt::Core)
 add_test(NAME AudioClipStoreSecurityTest COMMAND audioclipstore_security_test)
 
+# Drives the real ModelManager download path against a local stand-in
+# HTTP server: a model is only installed once the bytes on disk match the
+# pinned hash and QSaveFile::commit() succeeds, and only counts as
+# downloaded with a matching ".verified" sidecar. Also asserts every
+# catalog hash is well formed.
+qt_add_executable(modelmanager_verification_test
+    tests/modelmanager_verification_test.cpp
+    src/core/modelmanager.h
+    src/core/modelmanager.cpp
+    src/core/modelcatalog.h
+    src/core/modelcatalog.cpp
+)
+target_include_directories(modelmanager_verification_test PRIVATE src/core)
+target_compile_definitions(modelmanager_verification_test PRIVATE WHISPERLET_TESTING)
+target_link_libraries(modelmanager_verification_test PRIVATE
+    Qt::Core
+    Qt::Network
+    Qt::Test
+)
+add_test(NAME ModelManagerVerificationTest COMMAND modelmanager_verification_test)
+
 # Pure logic, no CGEvent/AX calls: the chunk-boundary math the mac text
 # injector uses to keep long dictated passages under
 # CGEventKeyboardSetUnicodeString's per-event limit without splitting a

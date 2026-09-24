@@ -247,19 +247,28 @@ MainWindow::MainWindow(QWidget *parent)
     // transcription silently pays the full model load (large-v3-turbo is a
     // 1.6GB read — many seconds on a laptop) and looks like the app hung.
     // m_transcribing gates transcription until the engine is ready.
+    // A model file with no verification sidecar (carried over from an older
+    // version) is hashed once here first, and only loaded if it matches.
     connect(&m_preloadWatcher, &QFutureWatcher<bool>::finished, this, [this] {
         m_transcribing = false;
+        const QString id = m_models->activeModelId();
         if (m_preloadWatcher.result())
             flashStatus(tr("Model ready (loaded in %1s)")
                             .arg(m_engine->lastLoadMs() / 1000.0, 0, 'f', 1));
+        else if (!m_models->isDownloaded(id))
+            flashStatus(tr("Model \"%1\" failed its integrity check. Download it again in Settings.")
+                            .arg(id));
     });
-    if (m_models->isDownloaded(m_models->activeModelId())) {
-        const QString path = m_models->localPath(m_models->activeModelId());
+    const QString activeId = m_models->activeModelId();
+    if (m_models->isDownloaded(activeId) || m_models->needsVerification(activeId)) {
+        const QString path = m_models->localPath(activeId);
         m_transcribing = true;
         flashStatus(tr("Loading model…"));
+        const ModelManager *models = m_models;
         WhisperEngine *engine = m_engine.get();
-        m_preloadWatcher.setFuture(QtConcurrent::run(
-            [engine, path] { return engine->loadModel(path); }));
+        m_preloadWatcher.setFuture(QtConcurrent::run([models, engine, activeId, path] {
+            return models->verifyLocalFile(activeId) && engine->loadModel(path);
+        }));
     }
 }
 

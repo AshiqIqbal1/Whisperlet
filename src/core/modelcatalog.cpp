@@ -69,3 +69,14 @@ QString ModelCatalog::humanSize(qint64 bytes)
     const double mb = bytes / 1000.0 / 1000.0;
     return QStringLiteral("%1 MB").arg(mb, 0, 'f', 0);
 }
+
+bool ModelCatalog::isWellFormedSha256(const QString &hash)
+{
+    if (hash.size() != 64)
+        return false;
+    for (const QChar c : hash) {
+        if (!((c >= u'0' && c <= u'9') || (c >= u'a' && c <= u'f')))
+            return false;
+    }
+    return true;
+}
