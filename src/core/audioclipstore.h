@@ -14,6 +14,7 @@ bool exists(const QString &id);
 
 // samples: mono float32 in [-1,1] at `rate` Hz. Clips are stored at the
 // mic's native rate so playback sounds like real audio, not a phone call.
+// Atomic: returns false, and leaves no partial clip, if any write failed.
 bool save(const QString &id, const std::vector<float> &samples, int rate);
 
 // Inverse of save(). Empty vector if the file is missing/corrupt.

@@ -782,7 +782,8 @@ void MainWindow::persist()
     list.reserve(m_cards.size());
     for (auto *card : std::as_const(m_cards))
         list.append(card->data());
-    TranscriptStore::save(list);
+    if (!TranscriptStore::save(list))
+        flashStatus(tr("Couldn't save history"));
 }
 
 void MainWindow::applyFilter(const QString &needle)

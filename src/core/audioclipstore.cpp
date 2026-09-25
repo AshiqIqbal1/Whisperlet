@@ -3,7 +3,9 @@
 #include <QDataStream>
 #include <QDir>
 #include <QFile>
+#include <QSaveFile>
 #include <QStandardPaths>
+#include <QtDebug>
 #include <QtEndian>
 
 #include <algorithm>
@@ -60,9 +62,14 @@ bool AudioClipStore::save(const QString &id, const std::vector<float> &samples, 
     if (!isSafeId(id))
         return false;
 
-    QFile file(path(id));
-    if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate))
+    // Written to a temp file and only swapped in on commit(), so a failed
+    // or interrupted write never leaves a truncated clip behind.
+    QSaveFile file(path(id));
+    if (!file.open(QIODevice::WriteOnly)) {
+        qWarning("AudioClipStore: cannot write %s: %s",
+                 qPrintable(file.fileName()), qPrintable(file.errorString()));
         return false;
+    }
     // Recordings of the user's voice: owner only, same reasoning as the
     // transcript store.
     file.setPermissions(QFileDevice::ReadOwner | QFileDevice::WriteOwner);
@@ -75,10 +82,10 @@ bool AudioClipStore::save(const QString &id, const std::vector<float> &samples, 
     const quint32 byteRate = kSampleRate * kChannels * kBitsPerSample / 8;
 
     // Canonical 44-byte PCM WAV header.
-    file.write("RIFF", 4);
+    bool ok = file.write("RIFF", 4) == 4;
     out << quint32(36 + dataBytes);
-    file.write("WAVE", 4);
-    file.write("fmt ", 4);
+    ok = ok && file.write("WAVE", 4) == 4;
+    ok = ok && file.write("fmt ", 4) == 4;
     out << quint32(16);                                   // fmt chunk size
     out << quint16(1);                                    // PCM
     out << kChannels;
@@ -86,17 +93,28 @@ bool AudioClipStore::save(const QString &id, const std::vector<float> &samples, 
     out << byteRate;
     out << quint16(kChannels * kBitsPerSample / 8);       // block align
     out << kBitsPerSample;
-    file.write("data", 4);
+    ok = ok && file.write("data", 4) == 4;
     out << dataBytes;
 
-    // Convert into one buffer and write once — pushing samples through
+    // Convert into one buffer and write once - pushing samples through
     // QDataStream one at a time costs hundreds of ms per minute of audio.
     QByteArray pcm(qsizetype(samples.size()) * qsizetype(sizeof(qint16)), Qt::Uninitialized);
     qint16 *dst = reinterpret_cast<qint16 *>(pcm.data());
     for (size_t i = 0; i < samples.size(); ++i)
         qToLittleEndian<qint16>(qint16(std::clamp(samples[i], -1.0f, 1.0f) * 32767.0f), &dst[i]);
-    file.write(pcm);
+    ok = ok && file.write(pcm) == pcm.size();
 
+    if (!ok || out.status() != QDataStream::Ok) {
+        qWarning("AudioClipStore: writing %s failed: %s",
+                 qPrintable(file.fileName()), qPrintable(file.errorString()));
+        file.cancelWriting();
+        return false;
+    }
+    if (!file.commit()) {
+        qWarning("AudioClipStore: saving %s failed: %s",
+                 qPrintable(file.fileName()), qPrintable(file.errorString()));
+        return false;
+    }
     return true;
 }
 
