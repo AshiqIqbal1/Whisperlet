@@ -4,7 +4,12 @@ cmake_minimum_required(VERSION 3.19)
 # metadata below and baked into a generated header so the running app can
 # report its own version (e.g. for the update checker) without a second
 # hardcoded copy drifting out of sync.
-set(WHISPERLET_VERSION "0.7.1")
+#
+# A CACHE variable so CI can override it: build.yml passes the release tag
+# (minus its leading "v") as -DWHISPERLET_VERSION when building a tag, so
+# released binaries report the version they were tagged with. The value here
+# is only the fallback for local/dev builds and untagged CI runs.
+set(WHISPERLET_VERSION "0.7.1" CACHE STRING "Application version (CI sets this from the release tag)")
 
 # OBJCXX: the macOS overlay backend is Objective-C++ (AppKit).
 if(APPLE)
@@ -390,6 +395,21 @@ qt_add_executable(audioclipstore_security_test
 target_include_directories(audioclipstore_security_test PRIVATE src/core)
 target_link_libraries(audioclipstore_security_test PRIVATE Qt::Core)
 add_test(NAME AudioClipStoreSecurityTest COMMAND audioclipstore_security_test)
+
+# Transcript history and audio clips are saved through QSaveFile: a simulated
+# short write (RLIMIT_FSIZE, like a full disk) must report failure and keep
+# the previous file, and a damaged transcripts.json must be moved aside
+# rather than read as empty history and overwritten.
+qt_add_executable(store_atomic_save_test
+    tests/store_atomic_save_test.cpp
+    src/core/transcriptstore.h
+    src/core/transcriptstore.cpp
+    src/core/audioclipstore.h
+    src/core/audioclipstore.cpp
+)
+target_include_directories(store_atomic_save_test PRIVATE src/core src/ui)
+target_link_libraries(store_atomic_save_test PRIVATE Qt::Core Qt::Widgets)
+add_test(NAME StoreAtomicSaveTest COMMAND store_atomic_save_test)
 
 # Drives the real ModelManager download path against a local stand-in
 # HTTP server: a model is only installed once the bytes on disk match the
