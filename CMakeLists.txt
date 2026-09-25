@@ -4,7 +4,12 @@ cmake_minimum_required(VERSION 3.19)
 # metadata below and baked into a generated header so the running app can
 # report its own version (e.g. for the update checker) without a second
 # hardcoded copy drifting out of sync.
-set(WHISPERLET_VERSION "0.7.1")
+#
+# A CACHE variable so CI can override it: build.yml passes the release tag
+# (minus its leading "v") as -DWHISPERLET_VERSION when building a tag, so
+# released binaries report the version they were tagged with. The value here
+# is only the fallback for local/dev builds and untagged CI runs.
+set(WHISPERLET_VERSION "0.7.1" CACHE STRING "Application version (CI sets this from the release tag)")
 
 # OBJCXX: the macOS overlay backend is Objective-C++ (AppKit).
 if(APPLE)
