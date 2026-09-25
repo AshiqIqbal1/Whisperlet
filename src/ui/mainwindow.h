@@ -2,6 +2,7 @@
 #define MAINWINDOW_H
 
 #include "audiorecorder.h"
+#include "jobgate.h"
 #include "transcriptcard.h"
 
 #include <QElapsedTimer>
@@ -74,6 +75,8 @@ private:
     void persist();
     void refreshEmptyState();
     void flashStatus(const QString &message);
+    void refuseJob(JobGate::Refusal why);
+    void endJob();
 
     // --- ui ---
     QLineEdit    *m_search = nullptr;
@@ -98,7 +101,7 @@ private:
     QFutureWatcher<bool> m_preloadWatcher;
     QFutureWatcher<AudioRecorder::ProcessedRecording> m_processWatcher;
     RecordingPill *m_pill = nullptr;
-    bool m_transcribing = false;
+    JobGate m_jobs; // preload, or a recording/drop/Retry from start to transcript
     bool m_dictating = false; // current recording started via the global hotkey
     bool m_askedForAccessibility = false; // prompt at most once per run
 

@@ -125,11 +125,11 @@ MainWindow::MainWindow(QWidget *parent)
             this, &MainWindow::onRecordingProcessed);
 
     connect(&m_transcribeWatcher, &QFutureWatcher<QString>::finished, this, [this] {
-        m_transcribing = false;
         m_pill->hide();
         const QString text = m_transcribeWatcher.result();
         if (text.isEmpty()) {
             flashStatus(tr("Transcription failed: %1").arg(m_engine->lastError()));
+            endJob();
             return;
         }
 
@@ -150,7 +150,8 @@ MainWindow::MainWindow(QWidget *parent)
 
                 // Ask at most once per run; re-prompting on every dictation
                 // is what made this feel like it asks "every single time".
-                if (!m_askedForAccessibility) {
+                // Not while closing: the modal box would hold the close up.
+                if (!m_askedForAccessibility && !m_jobs.closing()) {
                     m_askedForAccessibility = true;
                     promptForAccessibility();
                 }
@@ -176,6 +177,7 @@ MainWindow::MainWindow(QWidget *parent)
         // Show the real timing so slowness is diagnosable, not mysterious.
         flashStatus(tr("Done in %1s")
                         .arg(m_engine->lastTranscribeMs() / 1000.0, 0, 'f', 1));
+        endJob();
     });
 
     // Global hotkey — works even when another app has focus. Combo is
@@ -246,11 +248,10 @@ MainWindow::MainWindow(QWidget *parent)
     // Preload the active model in the background. Without this the first
     // transcription silently pays the full model load (large-v3-turbo is a
     // 1.6GB read — many seconds on a laptop) and looks like the app hung.
-    // m_transcribing gates transcription until the engine is ready.
+    // m_jobs gates transcription until the engine is ready.
     // A model file with no verification sidecar (carried over from an older
     // version) is hashed once here first, and only loaded if it matches.
     connect(&m_preloadWatcher, &QFutureWatcher<bool>::finished, this, [this] {
-        m_transcribing = false;
         const QString id = m_models->activeModelId();
         if (m_preloadWatcher.result())
             flashStatus(tr("Model ready (loaded in %1s)")
@@ -258,11 +259,12 @@ MainWindow::MainWindow(QWidget *parent)
         else if (!m_models->isDownloaded(id))
             flashStatus(tr("Model \"%1\" failed its integrity check. Download it again in Settings.")
                             .arg(id));
+        endJob();
     });
     const QString activeId = m_models->activeModelId();
     if (m_models->isDownloaded(activeId) || m_models->needsVerification(activeId)) {
         const QString path = m_models->localPath(activeId);
-        m_transcribing = true;
+        m_jobs.begin();
         flashStatus(tr("Loading model…"));
         const ModelManager *models = m_models;
         WhisperEngine *engine = m_engine.get();
@@ -274,18 +276,33 @@ MainWindow::MainWindow(QWidget *parent)
 
 MainWindow::~MainWindow()
 {
-    delete m_pill; // parentless top-level window, not in our child tree
-}
-
-void MainWindow::closeEvent(QCloseEvent *event)
-{
-    // Let workers finish before the engine is torn down.
+    // closeEvent() normally holds the window open until the job is done.
+    // This covers the event loop ending without a close getting through:
+    // never free m_engine under a running worker. Queued finished signals
+    // die with us, so nothing new starts after these waits.
     if (m_preloadWatcher.isRunning())
         m_preloadWatcher.waitForFinished();
     if (m_processWatcher.isRunning())
         m_processWatcher.waitForFinished();
     if (m_transcribeWatcher.isRunning())
         m_transcribeWatcher.waitForFinished();
+    delete m_pill; // parentless top-level window, not in our child tree
+}
+
+void MainWindow::closeEvent(QCloseEvent *event)
+{
+    // Mid-job, waiting on the current worker is not enough: its finished
+    // signal is queued and would start the next step (decode -> whisper,
+    // process -> whisper) after the window and its engine are gone. Stay
+    // open instead, let the job run to the end so a just-stopped recording
+    // is still saved, and endJob() closes for real. The window stays
+    // visible on purpose: closing a hidden window never counts as the last
+    // one closing, so the app would not quit.
+    if (!m_jobs.requestClose()) {
+        refuseJob(JobGate::Refusal::Closing);
+        event->ignore();
+        return;
+    }
     persist();
     QMainWindow::closeEvent(event);
 }
@@ -565,15 +582,13 @@ bool MainWindow::ensureModelReady()
 
 void MainWindow::toggleRecording()
 {
-    if (m_transcribing) {
-        m_dictating = false; // this attempt is over; don't leak into the next one
-        flashStatus(m_preloadWatcher.isRunning()
-                        ? tr("Model still loading…")
-                        : tr("Still transcribing the previous recording…"));
-        return;
-    }
-
     if (!m_recorder->isRecording()) {
+        const JobGate::Refusal refusal = m_jobs.checkStartRecording();
+        if (refusal != JobGate::Refusal::None) {
+            m_dictating = false; // this attempt is over; don't leak into the next one
+            refuseJob(refusal);
+            return;
+        }
         if (!ensureModelReady()) {
             m_dictating = false;
             return;
@@ -605,11 +620,17 @@ void MainWindow::toggleRecording()
             m_pill->showTranscribing();
 
         // Denoise/condition/resample is real DSP work (can run well past a
-        // frame budget), so it runs off the UI thread; m_transcribing blocks
-        // a new recording from starting mid-process, same as it does during
-        // the whisper pass itself.
+        // frame budget), so it runs off the UI thread. The job holds m_jobs
+        // from here to the transcript. No other job can hold it now:
+        // recording only starts when idle and drops/Retry are refused
+        // while recording, so a stop is never turned away. The one miss
+        // is a stop after the window already closed, with nothing to run
+        // the job on.
+        if (!m_jobs.begin()) {
+            m_pill->hide();
+            return;
+        }
         const bool suppressNoise = QSettings().value(QStringLiteral("suppressNoise"), true).toBool();
-        m_transcribing = true;
         flashStatus(tr("Processing…"));
 
         QVariantMap job;
@@ -623,7 +644,6 @@ void MainWindow::toggleRecording()
 
 void MainWindow::onRecordingProcessed()
 {
-    m_transcribing = false;
     AudioRecorder::ProcessedRecording processed = m_processWatcher.result();
 
     const auto props = m_processWatcher.property("job").toMap();
@@ -676,11 +696,10 @@ void MainWindow::runTranscription(std::vector<float> samples, int durationSec,
     job[QStringLiteral("dictated")] = dictated;
     m_transcribeWatcher.setProperty("job", job);
 
-    m_transcribing = true;
     flashStatus(tr("Transcribing…"));
 
-    // WhisperEngine is only ever touched from inside this task while
-    // m_transcribing guards against a second one starting.
+    // WhisperEngine is only ever touched from inside this task, and the
+    // caller's job holds m_jobs so a second one can't start.
     WhisperEngine *engine = m_engine.get();
     m_transcribeWatcher.setFuture(QtConcurrent::run(
         [engine, modelPath, samples = std::move(samples)]() -> QString {
@@ -735,8 +754,9 @@ void MainWindow::playClip(const QString &id)
 
 void MainWindow::retranscribe(const QString &id)
 {
-    if (m_transcribing) {
-        flashStatus(tr("Still transcribing the previous recording…"));
+    const JobGate::Refusal refusal = m_jobs.checkStartFileJob(m_recorder->isRecording());
+    if (refusal != JobGate::Refusal::None) {
+        refuseJob(refusal);
         return;
     }
     if (!ensureModelReady())
@@ -757,6 +777,11 @@ void MainWindow::retranscribe(const QString &id)
             durationSec = card->data().durationSec;
             break;
         }
+    }
+    // ensureModelReady() can run Settings modally, so check again.
+    if (!m_jobs.begin()) {
+        refuseJob(JobGate::Refusal::Busy);
+        return;
     }
     runTranscription(std::move(samples), durationSec, id, /*dictated=*/false);
 }
@@ -804,6 +829,32 @@ void MainWindow::flashStatus(const QString &message)
     m_statusTimer->start(3000);
 }
 
+void MainWindow::refuseJob(JobGate::Refusal why)
+{
+    const bool preloading = m_preloadWatcher.isRunning();
+    switch (why) {
+    case JobGate::Refusal::Busy:
+        flashStatus(preloading ? tr("Model still loading…")
+                               : tr("Still transcribing, try again when it's done…"));
+        break;
+    case JobGate::Refusal::Recording:
+        flashStatus(tr("Stop the recording first"));
+        break;
+    case JobGate::Refusal::Closing:
+        flashStatus(preloading ? tr("Model still loading, then closing…")
+                               : tr("Finishing the current transcription, then closing…"));
+        break;
+    case JobGate::Refusal::None:
+        break;
+    }
+}
+
+void MainWindow::endJob()
+{
+    if (m_jobs.finish())
+        QTimer::singleShot(0, this, &QWidget::close); // close was deferred for this job
+}
+
 void MainWindow::keyPressEvent(QKeyEvent *event)
 {
     if (event->key() == Qt::Key_Space && !m_search->hasFocus()) {
@@ -824,20 +875,31 @@ void MainWindow::dropEvent(QDropEvent *event)
     const auto urls = event->mimeData()->urls();
     if (urls.isEmpty() || !urls.first().isLocalFile())
         return;
-    if (m_transcribing) {
-        flashStatus(tr("Still transcribing the previous recording…"));
+    const JobGate::Refusal refusal = m_jobs.checkStartFileJob(m_recorder->isRecording());
+    if (refusal != JobGate::Refusal::None) {
+        refuseJob(refusal);
         return;
     }
     if (!ensureModelReady())
         return;
+    // ensureModelReady() can run Settings modally, so check again.
+    if (!m_jobs.begin()) {
+        refuseJob(JobGate::Refusal::Busy);
+        return;
+    }
 
     flashStatus(tr("Decoding %1…").arg(urls.first().fileName()));
 
+    // The job holds m_jobs through decoding too, not just the whisper pass.
     auto *decoder = new AudioFileDecoder(urls.first().toLocalFile(), this);
     connect(decoder, &AudioFileDecoder::finished, this,
-            [this](std::vector<float> samples, const QString &error) {
+            [this, decoder](std::vector<float> samples, const QString &error) {
+                // QAudioDecoder can report an error and then finish too;
+                // this job must only end once.
+                disconnect(decoder, nullptr, this, nullptr);
                 if (!error.isEmpty() || samples.empty()) {
                     flashStatus(tr("Could not decode file: %1").arg(error));
+                    endJob();
                     return;
                 }
                 const int durationSec = int(samples.size() / 16000);

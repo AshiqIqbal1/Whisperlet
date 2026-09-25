@@ -160,6 +160,7 @@ qt_add_executable(Whisperlet
     src/core/audiofiledecoder.cpp
     src/core/transcriptstore.h
     src/core/transcriptstore.cpp
+    src/core/jobgate.h
     src/ui/titlebar.h
     src/ui/titlebar.cpp
     src/ui/recordingpill.h
@@ -261,6 +262,18 @@ add_executable(versioncompare_test
 target_include_directories(versioncompare_test PRIVATE src/core)
 target_link_libraries(versioncompare_test PRIVATE Qt::Core)
 add_test(NAME VersionCompareTest COMMAND versioncompare_test)
+
+# Pure logic: the one-job-at-a-time rules MainWindow follows for the
+# whisper engine. Covers #57 (a drop during a dictation or a decode
+# starting a second concurrent transcription), #56 (a stop press refused
+# while a drop/Retry job runs) and #60 (a close mid-job letting queued work
+# start after the engine is freed).
+add_executable(jobgate_test
+    tests/jobgate_test.cpp
+    src/core/jobgate.h
+)
+target_include_directories(jobgate_test PRIVATE src/core)
+add_test(NAME JobGateTest COMMAND jobgate_test)
 
 # Exercises the local-socket lock directly: second launch defers to the
 # first and pings it to activate, and a stale socket file left by an
