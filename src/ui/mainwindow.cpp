@@ -125,8 +125,7 @@ MainWindow::MainWindow(QWidget *parent)
             this, &MainWindow::onRecordingProcessed);
 
     connect(&m_transcribeWatcher, &QFutureWatcher<QString>::finished, this, [this] {
-        if (!m_recorder->isRecording())
-            m_pill->hide();
+        m_pill->hide();
         const QString text = m_transcribeWatcher.result();
         if (text.isEmpty()) {
             flashStatus(tr("Transcription failed: %1").arg(m_engine->lastError()));
@@ -831,17 +830,18 @@ void MainWindow::flashStatus(const QString &message)
 
 void MainWindow::refuseJob(JobGate::Refusal why)
 {
+    const bool preloading = m_preloadWatcher.isRunning();
     switch (why) {
     case JobGate::Refusal::Busy:
-        flashStatus(m_preloadWatcher.isRunning()
-                        ? tr("Model still loading…")
-                        : tr("Still processing the previous recording…"));
+        flashStatus(preloading ? tr("Model still loading…")
+                               : tr("Still transcribing, try again when it's done…"));
         break;
     case JobGate::Refusal::Recording:
         flashStatus(tr("Stop the recording first"));
         break;
     case JobGate::Refusal::Closing:
-        flashStatus(tr("Finishing the current recording, then closing…"));
+        flashStatus(preloading ? tr("Model still loading, then closing…")
+                               : tr("Finishing the current transcription, then closing…"));
         break;
     case JobGate::Refusal::None:
         break;
