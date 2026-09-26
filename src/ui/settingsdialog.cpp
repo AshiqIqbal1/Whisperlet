@@ -8,6 +8,7 @@
 #include "updatechecker.h"
 #include "version.h"
 
+#include <QAbstractItemView>
 #include <QButtonGroup>
 #include <QCheckBox>
 #include <QComboBox>
@@ -17,11 +18,54 @@
 #include <QKeySequenceEdit>
 #include <QLabel>
 #include <QMessageBox>
+#include <QPainter>
 #include <QProgressBar>
 #include <QPushButton>
 #include <QRadioButton>
+#include <QScreen>
 #include <QSettings>
 #include <QVBoxLayout>
+
+namespace {
+// Opens its list as a drop-down under the field (above it when the screen
+// has no room below). On macOS QComboBox opens the list over the field
+// itself, even with the combobox-popup: 0 style hint, so the open list
+// covered the helper text and the checkbox under the picker.
+class DropDownComboBox : public QComboBox
+{
+public:
+    using QComboBox::QComboBox;
+
+    void showPopup() override
+    {
+        QComboBox::showPopup();
+        QWidget *popup = view()->window();
+        if (popup == window())
+            return;
+
+        const QRect field(mapToGlobal(QPoint(0, 0)), size());
+        QRect r(QPoint(field.left(), field.bottom() + 1),
+                QSize(qMax(popup->width(), field.width()), popup->height()));
+        if (const QScreen *s = screen(); s && r.bottom() > s->availableGeometry().bottom())
+            r.moveBottom(field.top() - 1);
+        popup->setGeometry(r);
+    }
+
+protected:
+    // The stylesheet's rounded field hides the native arrow box, so draw a
+    // chevron in its place.
+    void paintEvent(QPaintEvent *event) override
+    {
+        QComboBox::paintEvent(event);
+        QPainter p(this);
+        p.setRenderHint(QPainter::Antialiasing);
+        p.setPen(QPen(isEnabled() ? QColor(0xA0, 0xA0, 0xA8) : QColor(0x5E, 0x5E, 0x66), 1.6,
+                      Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+        const QPointF c(width() - 16, height() / 2.0 + 1);
+        p.drawPolyline(QPolygonF({c + QPointF(-4, -2), c + QPointF(0, 2), c + QPointF(4, -2)}));
+    }
+};
+} // namespace
 
 SettingsDialog::SettingsDialog(ModelManager *models, GlobalHotkey *hotkey, QWidget *parent)
     : QDialog(parent)
@@ -51,11 +95,32 @@ QProgressBar {
     color: transparent;
 }
 QProgressBar::chunk { background: #0A84FF; border-radius: 4px; }
+/* combobox-popup: 0 lists items plainly instead of lining the current one
+   up over the field, macOS style. DropDownComboBox places the list. */
+QComboBox {
+    background: #26262A;
+    border: 1px solid #3A3A42;
+    border-radius: 8px;
+    padding: 6px 10px;
+    combobox-popup: 0;
+}
+QComboBox::drop-down { border: none; width: 28px; }
+QComboBox:disabled { color: #5E5E66; }
+QComboBox QAbstractItemView {
+    background: #1E1E21;
+    border: 1px solid #303036;
+    padding: 4px;
+    outline: none;
+    selection-background-color: #303038;
+    selection-color: #F2F2F5;
+}
 )"));
 
     auto *layout = new QVBoxLayout(this);
     layout->setContentsMargins(24, 20, 24, 16);
     layout->setSpacing(14);
+    // Extra gap above each section on top of the layout's own spacing.
+    const int sectionGap = 12;
 
     auto *heading = new QLabel(tr("Transcription model"), this);
     heading->setObjectName(QStringLiteral("sectionHeading"));
@@ -69,7 +134,7 @@ QProgressBar::chunk { background: #0A84FF; border-radius: 4px; }
 
     auto *grid = new QGridLayout;
     grid->setHorizontalSpacing(12);
-    grid->setVerticalSpacing(10);
+    grid->setVerticalSpacing(18);
     grid->setColumnStretch(1, 1);
 
     // QRadioButtons auto-group per parent widget — without explicit groups
@@ -119,6 +184,7 @@ QProgressBar::chunk { background: #0A84FF; border-radius: 4px; }
     layout->addLayout(grid);
 
     // --- global shortcut ---------------------------------------------------
+    layout->addSpacing(sectionGap);
     auto *hotkeyHeading = new QLabel(tr("Global shortcut"), this);
     hotkeyHeading->setObjectName(QStringLiteral("sectionHeading"));
     layout->addWidget(hotkeyHeading);
@@ -132,9 +198,13 @@ QProgressBar::chunk { background: #0A84FF; border-radius: 4px; }
     modeGroup->addButton(m_tapRadio);
     (m_hotkey->isModifierTapMode() ? m_tapRadio : m_comboRadio)->setChecked(true);
 
-    auto *comboRow = new QHBoxLayout;
-    comboRow->setSpacing(10);
-    comboRow->addWidget(m_comboRadio);
+    // One grid for both modes so the key field and the modifier picker
+    // start in the same column whatever the radio labels' widths are.
+    auto *shortcutGrid = new QGridLayout;
+    shortcutGrid->setHorizontalSpacing(10);
+    shortcutGrid->setVerticalSpacing(12);
+    shortcutGrid->setColumnStretch(1, 1);
+    shortcutGrid->addWidget(m_comboRadio, 0, 0);
 
     m_hotkeyEdit = new QKeySequenceEdit(this);
     m_hotkeyEdit->setMaximumSequenceLength(1);
@@ -144,7 +214,7 @@ QProgressBar::chunk { background: #0A84FF; border-radius: 4px; }
         "QLineEdit{background:#26262A;border:1px solid #3A3A42;border-radius:8px;padding:6px 10px;}"));
     connect(m_hotkeyEdit, &QKeySequenceEdit::editingFinished,
             this, &SettingsDialog::onHotkeyEdited);
-    comboRow->addWidget(m_hotkeyEdit, 1);
+    shortcutGrid->addWidget(m_hotkeyEdit, 0, 1);
 
     auto *resetBtn = new QPushButton(tr("Reset"), this);
     connect(resetBtn, &QPushButton::clicked, this, [this] {
@@ -152,19 +222,16 @@ QProgressBar::chunk { background: #0A84FF; border-radius: 4px; }
         m_hotkeyEdit->setKeySequence(GlobalHotkey::defaultSequence());
         onHotkeyEdited();
     });
-    comboRow->addWidget(resetBtn);
-    layout->addLayout(comboRow);
+    shortcutGrid->addWidget(resetBtn, 0, 2);
 
-    auto *tapRow = new QHBoxLayout;
-    tapRow->setSpacing(10);
-    tapRow->addWidget(m_tapRadio);
+    shortcutGrid->addWidget(m_tapRadio, 1, 0);
 
-    m_modCombo = new QComboBox(this);
+    m_modCombo = new DropDownComboBox(this);
     for (const GlobalHotkey::ModKey key : GlobalHotkey::modKeys())
         m_modCombo->addItem(GlobalHotkey::modKeyLabel(key), int(key));
     m_modCombo->setCurrentIndex(m_modCombo->findData(int(m_hotkey->modifierKey())));
-    tapRow->addWidget(m_modCombo, 1);
-    layout->addLayout(tapRow);
+    shortcutGrid->addWidget(m_modCombo, 1, 1, 1, 2);
+    layout->addLayout(shortcutGrid);
 
     auto applyTapChoice = [this] {
         if (!m_tapRadio->isChecked())
@@ -211,6 +278,7 @@ QProgressBar::chunk { background: #0A84FF; border-radius: 4px; }
     layout->addWidget(m_hotkeyStatus);
 
     // --- dictation ----------------------------------------------------------
+    layout->addSpacing(sectionGap);
     auto *pasteBox = new QCheckBox(tr("Paste dictated text into the active app"), this);
     pasteBox->setChecked(QSettings().value(QStringLiteral("pasteAfterDictation"), true).toBool());
     pasteBox->setToolTip(tr("When recording is started with the global shortcut while "
@@ -265,6 +333,7 @@ QProgressBar::chunk { background: #0A84FF; border-radius: 4px; }
     layout->addWidget(keepAudioBox);
 
     // --- updates -------------------------------------------------------------
+    layout->addSpacing(sectionGap);
     auto *updateHeading = new QLabel(tr("Updates"), this);
     updateHeading->setObjectName(QStringLiteral("sectionHeading"));
     layout->addWidget(updateHeading);
