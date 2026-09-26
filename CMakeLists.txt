@@ -517,6 +517,25 @@ elseif(WIN32)
 endif()
 add_test(NAME GlobalHotkeyModKeysTest COMMAND globalhotkey_modkeys_test)
 
+# Dialogs and native indicators stay readable in macOS Light mode (#71): the
+# Accessibility prompt paints the dark dialog look, and the app pins the dark
+# colour scheme. Run the binary with QT_QPA_PLATFORM=cocoa to also cover the
+# colour scheme part, which offscreen cannot.
+qt_add_executable(dialogtheme_test
+    tests/dialogtheme_test.cpp
+    src/ui/theme.h
+    src/ui/theme.cpp
+)
+target_include_directories(dialogtheme_test PRIVATE src/ui)
+target_link_libraries(dialogtheme_test PRIVATE
+    Qt::Core
+    Qt::Gui
+    Qt::Widgets
+)
+add_test(NAME DialogThemeTest COMMAND dialogtheme_test)
+set_tests_properties(DialogThemeTest PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
 # Every *_test executable above, so CI can build just the tests without
 # compiling the app and vendored whisper.cpp. Collected rather than listed
 # so a new test is picked up without touching this.

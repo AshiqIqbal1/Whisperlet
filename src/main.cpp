@@ -1,5 +1,6 @@
 #include "mainwindow.h"
 #include "singleinstanceguard.h"
+#include "theme.h"
 #include "version.h"
 
 #include <QApplication>
@@ -44,6 +45,7 @@ void migrateFromWhisperFlow()
 int main(int argc, char *argv[])
 {
     QApplication a(argc, argv);
+    Theme::pinDarkColorScheme();
 
     // Give QSettings and QStandardPaths::AppLocalDataLocation a stable home
     // (~/Library/Application Support/Whisperlet on macOS, %LOCALAPPDATA% on

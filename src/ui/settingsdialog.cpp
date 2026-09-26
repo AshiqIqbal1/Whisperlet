@@ -38,7 +38,6 @@ SettingsDialog::SettingsDialog(ModelManager *models, GlobalHotkey *hotkey, QWidg
     // behind the main window and then pop back in front.
     setWindowModality(Qt::WindowModal);
     setStyleSheet(Theme::styleSheet() + QStringLiteral(R"(
-QDialog { background: #1A1A1D; }
 #sectionHeading { font-size: 16px; font-weight: 600; padding-top: 4px; }
 QRadioButton { spacing: 8px; font-size: 14px; }
 QRadioButton:disabled { color: #5E5E66; }
@@ -52,15 +51,6 @@ QProgressBar {
     color: transparent;
 }
 QProgressBar::chunk { background: #0A84FF; border-radius: 4px; }
-QPushButton {
-    background: #2A2A30;
-    border: 1px solid #3A3A42;
-    border-radius: 8px;
-    padding: 5px 14px;
-    font-size: 13px;
-}
-QPushButton:hover { background: #34343C; }
-QPushButton:disabled { color: #5E5E66; background: #222226; }
 )"));
 
     auto *layout = new QVBoxLayout(this);
