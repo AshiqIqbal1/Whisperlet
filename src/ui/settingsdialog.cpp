@@ -187,8 +187,13 @@ QProgressBar::chunk { background: #0A84FF; border-radius: 4px; }
                                        "Whisperlet on in Privacy & Security, then it "
                                        "starts working on its own.")
                                         .arg(GlobalHotkey::modKeyLabel(key)));
-            TextInjector::requestPermission();
-            TextInjector::openPermissionSettings();
+            // Once per dialog: arrowing through the keys would otherwise pull
+            // System Settings to the front on every change.
+            if (!m_openedAccessibilitySettings) {
+                m_openedAccessibilitySettings = true;
+                TextInjector::requestPermission();
+                TextInjector::openPermissionSettings();
+            }
         } else if (stored) {
             m_hotkeyStatus->setText(tr("Tap %1 on its own to start and stop. Active when "
                                        "you close Settings.")
