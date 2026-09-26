@@ -119,6 +119,8 @@ QComboBox QAbstractItemView {
     auto *layout = new QVBoxLayout(this);
     layout->setContentsMargins(24, 20, 24, 16);
     layout->setSpacing(14);
+    // Extra gap above each section on top of the layout's own spacing.
+    const int sectionGap = 12;
 
     auto *heading = new QLabel(tr("Transcription model"), this);
     heading->setObjectName(QStringLiteral("sectionHeading"));
@@ -132,7 +134,7 @@ QComboBox QAbstractItemView {
 
     auto *grid = new QGridLayout;
     grid->setHorizontalSpacing(12);
-    grid->setVerticalSpacing(10);
+    grid->setVerticalSpacing(18);
     grid->setColumnStretch(1, 1);
 
     // QRadioButtons auto-group per parent widget — without explicit groups
@@ -182,6 +184,7 @@ QComboBox QAbstractItemView {
     layout->addLayout(grid);
 
     // --- global shortcut ---------------------------------------------------
+    layout->addSpacing(sectionGap);
     auto *hotkeyHeading = new QLabel(tr("Global shortcut"), this);
     hotkeyHeading->setObjectName(QStringLiteral("sectionHeading"));
     layout->addWidget(hotkeyHeading);
@@ -199,7 +202,7 @@ QComboBox QAbstractItemView {
     // start in the same column whatever the radio labels' widths are.
     auto *shortcutGrid = new QGridLayout;
     shortcutGrid->setHorizontalSpacing(10);
-    shortcutGrid->setVerticalSpacing(10);
+    shortcutGrid->setVerticalSpacing(12);
     shortcutGrid->setColumnStretch(1, 1);
     shortcutGrid->addWidget(m_comboRadio, 0, 0);
 
@@ -275,6 +278,7 @@ QComboBox QAbstractItemView {
     layout->addWidget(m_hotkeyStatus);
 
     // --- dictation ----------------------------------------------------------
+    layout->addSpacing(sectionGap);
     auto *pasteBox = new QCheckBox(tr("Paste dictated text into the active app"), this);
     pasteBox->setChecked(QSettings().value(QStringLiteral("pasteAfterDictation"), true).toBool());
     pasteBox->setToolTip(tr("When recording is started with the global shortcut while "
@@ -329,6 +333,7 @@ QComboBox QAbstractItemView {
     layout->addWidget(keepAudioBox);
 
     // --- updates -------------------------------------------------------------
+    layout->addSpacing(sectionGap);
     auto *updateHeading = new QLabel(tr("Updates"), this);
     updateHeading->setObjectName(QStringLiteral("sectionHeading"));
     layout->addWidget(updateHeading);
