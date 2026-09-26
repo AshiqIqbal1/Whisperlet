@@ -105,6 +105,11 @@ MainWindow::MainWindow(QWidget *parent)
     outer->addWidget(content, /*stretch=*/1);
     setCentralWidget(root);
 
+    // Start with focus on the record button, not the search box (the first
+    // widget in the tab chain), so Space records right after launch instead
+    // of typing into the search field.
+    m_record->setFocus();
+
     m_pill = new RecordingPill; // top-level tool window, parentless on purpose
 
     m_status = new QLabel(this);
@@ -858,7 +863,9 @@ void MainWindow::endJob()
 void MainWindow::keyPressEvent(QKeyEvent *event)
 {
     if (event->key() == Qt::Key_Space && !m_search->hasFocus()) {
-        toggleRecording();
+        // Holding Space sends auto-repeat presses; only the first one toggles.
+        if (!event->isAutoRepeat())
+            toggleRecording();
         return;
     }
     QMainWindow::keyPressEvent(event);
