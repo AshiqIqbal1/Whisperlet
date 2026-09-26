@@ -542,6 +542,19 @@ elseif(WIN32)
 endif()
 add_test(NAME GlobalHotkeyModKeysTest COMMAND globalhotkey_modkeys_test)
 
+# A tap key blocked only by missing Accessibility is kept and goes live once
+# access is granted mid-session (#51). Real globalhotkey_common.cpp against a
+# stand-in backend whose trust flag the test flips, so it needs no real
+# Accessibility permission and runs the same on every platform.
+qt_add_executable(globalhotkey_accessibility_test
+    tests/globalhotkey_accessibility_test.cpp
+    src/platform/globalhotkey.h
+    src/platform/globalhotkey_common.cpp
+)
+target_include_directories(globalhotkey_accessibility_test PRIVATE src/platform)
+target_link_libraries(globalhotkey_accessibility_test PRIVATE Qt::Core Qt::Gui)
+add_test(NAME GlobalHotkeyAccessibilityTest COMMAND globalhotkey_accessibility_test)
+
 # Dialogs and native indicators stay readable in macOS Light mode (#71): the
 # Accessibility prompt paints the dark dialog look, and the app pins the dark
 # colour scheme. Run the binary with QT_QPA_PLATFORM=cocoa to also cover the

@@ -153,13 +153,9 @@ MainWindow::MainWindow(QWidget *parent)
                 QGuiApplication::clipboard()->setText(text);
                 flashStatus(tr("Copied to clipboard. Accessibility permission needed to type."));
 
-                // Ask at most once per run; re-prompting on every dictation
-                // is what made this feel like it asks "every single time".
                 // Not while closing: the modal box would hold the close up.
-                if (!m_askedForAccessibility && !m_jobs.closing()) {
-                    m_askedForAccessibility = true;
+                if (!m_jobs.closing())
                     promptForAccessibility();
-                }
             }
         }
 
@@ -214,8 +210,13 @@ MainWindow::MainWindow(QWidget *parent)
         // Keep the user's choice even if it can't register yet: silently
         // falling back to a different shortcut is why tapping the key
         // appeared to do nothing at all.
-        if (!m_hotkey->setModifierTap(key))
-            watchForAccessibility();
+        if (!m_hotkey->setModifierTap(key)) {
+            if (m_hotkey->needsAccessibility())
+                watchForAccessibility();
+            else
+                flashStatus(tr("Shortcut %1 could not be registered")
+                                .arg(GlobalHotkey::modKeyLabel(key)));
+        }
     } else {
         const QString savedCombo = settings.value(QStringLiteral("globalHotkey")).toString();
         QKeySequence combo = savedCombo.isEmpty()
@@ -482,24 +483,25 @@ void MainWindow::watchForAccessibility()
         return; // already waiting
 
     flashStatus(tr("Shortcut needs Accessibility permission"));
-    if (!m_askedForAccessibility) {
-        m_askedForAccessibility = true;
-        promptForAccessibility();
-    }
+    promptForAccessibility();
 
     // The permission is granted outside our process, and macOS gives no
     // notification for it, so poll until the tap registers. Cheap, and it
-    // stops the moment the shortcut is live.
+    // stops the moment the shortcut is live or the user picks a combo.
+    // Retrying whenever the tap isn't live (rather than only while
+    // needsAccessibility() says so) is what lets a grant made mid-session
+    // take effect: once access is on, needsAccessibility() is false but the
+    // tap still has to be registered.
     m_accessibilityWatch = new QTimer(this);
     m_accessibilityWatch->setInterval(2000);
     connect(m_accessibilityWatch, &QTimer::timeout, this, [this] {
-        if (m_hotkey->isActive() || !m_hotkey->needsAccessibility()) {
+        if (!m_hotkey->isModifierTapMode() || m_hotkey->isActive()) {
             m_accessibilityWatch->stop();
             m_accessibilityWatch->deleteLater();
             m_accessibilityWatch = nullptr;
             return;
         }
-        if (m_hotkey->setModifierTap(m_hotkey->modifierKey())) {
+        if (m_hotkey->retryRegistration()) {
             flashStatus(tr("Shortcut active: tap %1").arg(m_hotkey->comboLabel()));
             refreshHint();
         }
@@ -509,13 +511,26 @@ void MainWindow::watchForAccessibility()
 
 void MainWindow::promptForAccessibility()
 {
+    // Ask at most once per run; re-prompting on every dictation is what made
+    // this feel like it asks "every single time". The grant happens in
+    // System Settings while we run, so check it again right now rather than
+    // trusting whatever a caller saw earlier.
+    if (m_askedForAccessibility || TextInjector::canInject())
+        return;
+    m_askedForAccessibility = true;
+
     QMessageBox box(this);
     box.setIcon(QMessageBox::Information);
     box.setWindowTitle(tr("Permission needed"));
     box.setText(tr("Whisperlet needs Accessibility access to type into other apps."));
+    // The second sentence is for a switch that already shows on: macOS ties
+    // the grant to the app's signature, so after an update the old entry can
+    // stay on while this build is still untrusted. The transcript part lives
+    // in the status bar, since the shortcut path asks before any dictation.
     box.setInformativeText(tr("Open Privacy & Security → Accessibility, then switch "
-                              "Whisperlet on. Your transcript was copied to the "
-                              "clipboard in the meantime."));
+                              "Whisperlet on. If it is already on, remove it with "
+                              "the − button, then add Whisperlet back and switch "
+                              "it on."));
     const QAbstractButton *openBtn = box.addButton(tr("Open Settings"), QMessageBox::AcceptRole);
     box.addButton(tr("Later"), QMessageBox::RejectRole);
     box.exec();
@@ -555,9 +570,15 @@ void MainWindow::openSettings()
     if (!keepAudio())
         purgeStoredAudio(); // user turned keeping off — clear what's stored
 
-    if (!m_hotkey->resume())
-        flashStatus(tr("Shortcut %1 is in use by another app. Pick a different one.")
-                        .arg(m_hotkey->comboLabel()));
+    if (!m_hotkey->resume()) {
+        // A tap key waiting on Accessibility is not a clash with another app:
+        // say so, and keep retrying so it goes live once access is granted.
+        if (m_hotkey->needsAccessibility())
+            watchForAccessibility();
+        else
+            flashStatus(tr("Shortcut %1 is in use by another app. Pick a different one.")
+                            .arg(m_hotkey->comboLabel()));
+    }
     refreshHint(); // combo may have changed
 }
 

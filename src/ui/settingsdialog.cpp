@@ -176,11 +176,11 @@ QProgressBar::chunk { background: #0A84FF; border-radius: 4px; }
         s.setValue(QStringLiteral("hotkeyMode"), QStringLiteral("tap"));
         s.setValue(QStringLiteral("modTapKey"), int(key));
 
-        if (m_hotkey->setModifierTap(key)) {
-            m_hotkeyStatus->setText(tr("Tap %1 on its own to start and stop. Active when "
-                                       "you close Settings.")
-                                        .arg(m_hotkey->comboLabel()));
-        } else if (m_hotkey->needsAccessibility()) {
+        // Checked before the result: while Settings is open the hotkey is
+        // suspended, so setModifierTap() only stores the key and succeeds
+        // whether or not the tap could actually register.
+        const bool stored = m_hotkey->setModifierTap(key);
+        if (m_hotkey->needsAccessibility()) {
             // Silently doing nothing here is what made the shortcut look
             // broken: the mode was selected but never registered.
             m_hotkeyStatus->setText(tr("Tap %1 needs Accessibility permission. Turn "
@@ -189,6 +189,10 @@ QProgressBar::chunk { background: #0A84FF; border-radius: 4px; }
                                         .arg(GlobalHotkey::modKeyLabel(key)));
             TextInjector::requestPermission();
             TextInjector::openPermissionSettings();
+        } else if (stored) {
+            m_hotkeyStatus->setText(tr("Tap %1 on its own to start and stop. Active when "
+                                       "you close Settings.")
+                                        .arg(m_hotkey->comboLabel()));
         } else {
             m_hotkeyStatus->setText(tr("Could not register that key."));
         }
