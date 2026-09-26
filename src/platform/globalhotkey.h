@@ -49,10 +49,18 @@ public:
     bool isActive() const { return m_registered; }
 
     // Modifier-tap needs the Accessibility permission on macOS; this says
-    // whether that is the thing standing in the way.
+    // whether that is the thing standing in the way. Checks the live
+    // permission on every call, never a cached answer.
     bool needsAccessibility() const;
 
+    // Registers the current trigger again if it isn't live yet, e.g. once
+    // Accessibility has been granted mid-session. A tap key that failed only
+    // for lack of Accessibility is kept (not rolled back) for exactly this.
+    // False while suspended or if it still can't register.
+    bool retryRegistration();
+
     bool isModifierTapMode() const { return m_tapMode; }
+    bool isSuspended() const { return m_suspended; }
     QKeySequence sequence() const { return m_seq; }
     ModKey modifierKey() const { return m_modKey; }
 

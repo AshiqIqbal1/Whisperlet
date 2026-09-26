@@ -90,10 +90,25 @@ bool GlobalHotkey::setModifierTap(ModKey key)
     if (applyCurrent())
         return true;
 
+    // Missing Accessibility is not a reason to drop the user's choice. Keep
+    // the key so retryRegistration() can bring it up once access is granted,
+    // instead of rolling back to a mode nobody asked for.
+    if (needsAccessibility())
+        return false;
+
     m_modKey = oldKey;
     m_tapMode = oldTap;
     applyCurrent();
     return false;
+}
+
+bool GlobalHotkey::retryRegistration()
+{
+    if (m_suspended)
+        return false; // resume() registers
+    if (m_registered)
+        return true;
+    return applyCurrent();
 }
 
 void GlobalHotkey::suspend()
