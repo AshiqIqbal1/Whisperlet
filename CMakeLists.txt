@@ -50,14 +50,25 @@ else()
 endif()
 
 # Windows binaries are DISTRIBUTED (built on CI, run elsewhere), so never
-# bake the build machine's CPU flags in (GGML_NATIVE). Pin an AVX2+FMA
-# baseline instead: fast SIMD kernels, runs on every x86-64 CPU since ~2013.
+# bake the build machine's CPU flags in (GGML_NATIVE). Pin an AVX2 baseline
+# (Haswell / Excavator and newer) instead for fast SIMD kernels. Not every
+# x86-64 CPU has it: many Pentium, Celeron and Atom models sold as late as
+# ~2021 lack AVX entirely, so main() checks for these same features at
+# startup and shows an error rather than crashing (src/platform/cpufeatures).
+# Keep that list in step with the flags here.
+#
+# ggml can instead build every CPU variant and pick one at runtime
+# (GGML_CPU_ALL_VARIANTS), but only as separately loaded backend DLLs
+# (GGML_BACKEND_DL requires BUILD_SHARED_LIBS), which this static build and
+# its packaging do not do.
 if(WIN32)
     set(GGML_NATIVE OFF CACHE BOOL "" FORCE)
+    set(GGML_SSE42 ON CACHE BOOL "" FORCE)
     set(GGML_AVX ON CACHE BOOL "" FORCE)
     set(GGML_AVX2 ON CACHE BOOL "" FORCE)
     set(GGML_FMA ON CACHE BOOL "" FORCE)
     set(GGML_F16C ON CACHE BOOL "" FORCE)
+    set(GGML_BMI2 ON CACHE BOOL "" FORCE)
 
     # GPU on Windows. macOS gets Metal, and without an equivalent the same
     # model runs an order of magnitude slower here on CPU alone. Vulkan is
@@ -169,6 +180,8 @@ qt_add_executable(Whisperlet
     src/platform/globalhotkey_common.cpp
     src/platform/textinjector.h
     src/platform/overlaywindow.h
+    src/platform/cpufeatures.h
+    src/platform/cpufeatures.cpp
 )
 
 # In-app logo (title bar); bundle/EXE icons are handled per-platform below.
@@ -230,6 +243,7 @@ elseif(WIN32)
         src/platform/globalhotkey_win.cpp
         src/platform/textinjector_win.cpp
         src/platform/overlaywindow_win.cpp
+        src/platform/cpufeatures_win.cpp
         resources/whisperlet.rc
     )
 endif()
@@ -274,6 +288,17 @@ add_executable(jobgate_test
 )
 target_include_directories(jobgate_test PRIVATE src/core)
 add_test(NAME JobGateTest COMMAND jobgate_test)
+
+# Pure logic: the Windows startup CPU check (#69) decides from raw
+# CPUID/XGETBV values, so it is tested on every host with values for a
+# supported CPU, a Pentium/Celeron without AVX, and an OS without AVX state.
+add_executable(cpufeatures_test
+    tests/cpufeatures_test.cpp
+    src/platform/cpufeatures.h
+    src/platform/cpufeatures.cpp
+)
+target_include_directories(cpufeatures_test PRIVATE src/platform)
+add_test(NAME CpuFeaturesTest COMMAND cpufeatures_test)
 
 # Exercises the local-socket lock directly: second launch defers to the
 # first and pings it to activate, and a stale socket file left by an

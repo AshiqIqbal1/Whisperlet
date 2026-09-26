@@ -1,3 +1,4 @@
+#include "cpufeatures.h"
 #include "mainwindow.h"
 #include "singleinstanceguard.h"
 #include "theme.h"
@@ -9,6 +10,7 @@
 #include <QFileInfo>
 #include <QIcon>
 #include <QLocale>
+#include <QMessageBox>
 #include <QSettings>
 #include <QStandardPaths>
 #include <QTranslator>
@@ -84,6 +86,29 @@ int main(int argc, char *argv[])
             break;
         }
     }
+
+#ifdef Q_OS_WIN
+    // ggml's CPU kernels are built for an AVX2 baseline (CMakeLists.txt).
+    // MainWindow preloads the model straight away, which on an older CPU
+    // is an illegal instruction crash with no message, so refuse here with
+    // one instead (#69).
+    const std::vector<const char *> missing = missingCpuFeatures(readCpuIdInfo());
+    if (!missing.empty()) {
+        QStringList names;
+        for (const char *name : missing)
+            names << QString::fromLatin1(name);
+        QMessageBox::critical(
+            nullptr, QCoreApplication::translate("main", "Unsupported processor"),
+            QCoreApplication::translate(
+                "main",
+                "Whisperlet needs a processor with AVX2 support, which most Intel "
+                "and AMD processors from 2013 onwards have, but many Pentium, "
+                "Celeron and Atom models do not.\n\nThis processor is missing: %1.")
+                .arg(names.join(QStringLiteral(", "))));
+        return 1;
+    }
+#endif
+
     MainWindow w;
     QObject::connect(&singleInstanceGuard, &SingleInstanceGuard::activationRequested, &w, [&w]() {
         w.setWindowState((w.windowState() & ~Qt::WindowMinimized) | Qt::WindowActive);
