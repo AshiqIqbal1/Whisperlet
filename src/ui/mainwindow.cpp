@@ -477,13 +477,14 @@ void MainWindow::requestMicrophoneAccess()
 #endif
 }
 
-void MainWindow::watchForAccessibility()
+void MainWindow::watchForAccessibility(bool prompt)
 {
     if (m_accessibilityWatch)
         return; // already waiting
 
     flashStatus(tr("Shortcut needs Accessibility permission"));
-    promptForAccessibility();
+    if (prompt)
+        promptForAccessibility();
 
     // The permission is granted outside our process, and macOS gives no
     // notification for it, so poll until the tap registers. Cheap, and it
@@ -495,15 +496,26 @@ void MainWindow::watchForAccessibility()
     m_accessibilityWatch = new QTimer(this);
     m_accessibilityWatch->setInterval(2000);
     connect(m_accessibilityWatch, &QTimer::timeout, this, [this] {
-        if (!m_hotkey->isModifierTapMode() || m_hotkey->isActive()) {
+        const auto stopWatching = [this] {
             m_accessibilityWatch->stop();
             m_accessibilityWatch->deleteLater();
             m_accessibilityWatch = nullptr;
+        };
+        if (!m_hotkey->isModifierTapMode() || m_hotkey->isActive()) {
+            stopWatching();
             return;
         }
+        if (m_hotkey->isSuspended())
+            return; // Settings is open; resume() registers when it closes
         if (m_hotkey->retryRegistration()) {
             flashStatus(tr("Shortcut active: tap %1").arg(m_hotkey->comboLabel()));
             refreshHint();
+        } else if (!m_hotkey->needsAccessibility()) {
+            // Access is on but the tap still won't register, so retrying
+            // won't help. Say so once instead of failing silently forever.
+            flashStatus(tr("Shortcut %1 could not be registered")
+                            .arg(m_hotkey->comboLabel()));
+            stopWatching();
         }
     });
     m_accessibilityWatch->start();
@@ -573,8 +585,10 @@ void MainWindow::openSettings()
     if (!m_hotkey->resume()) {
         // A tap key waiting on Accessibility is not a clash with another app:
         // say so, and keep retrying so it goes live once access is granted.
+        // Settings already sent the user to System Settings for it, so
+        // don't stack the modal prompt on top.
         if (m_hotkey->needsAccessibility())
-            watchForAccessibility();
+            watchForAccessibility(false);
         else
             flashStatus(tr("Shortcut %1 is in use by another app. Pick a different one.")
                             .arg(m_hotkey->comboLabel()));
