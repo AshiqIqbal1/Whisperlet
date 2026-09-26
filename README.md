@@ -18,6 +18,10 @@ Prebuilt binaries are on the [releases page](https://github.com/AshiqIqbal1/Whis
 a `.zip` for Windows x64 and a `.dmg` for macOS on Apple silicon. Each release
 also ships `SHA256SUMS.txt`.
 
+The Windows build needs a CPU with AVX2 (most Intel and AMD processors from
+2013 onwards, but not many Pentium, Celeron and Atom models). On one without
+it the app shows an error at startup and exits.
+
 A full release is cut automatically every Monday
 ([release.yml](.github/workflows/release.yml)); any other tagged build is
 marked pre-release, so "Latest" on the releases page is always that week's
@@ -108,7 +112,7 @@ machine.
 ```
 src/ui        window, transcript cards, recording pill, settings
 src/core      whisper engine, model downloads, audio capture, DSP, update check
-src/platform  global shortcut, text injection, overlay window (per OS)
+src/platform  global shortcut, text injection, overlay window (per OS), CPU check
 tools         icon regeneration
 ```
 
