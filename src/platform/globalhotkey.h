@@ -60,6 +60,7 @@ public:
     bool retryRegistration();
 
     bool isModifierTapMode() const { return m_tapMode; }
+    bool isSuspended() const { return m_suspended; }
     QKeySequence sequence() const { return m_seq; }
     ModKey modifierKey() const { return m_modKey; }
 
