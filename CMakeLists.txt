@@ -53,9 +53,11 @@ endif()
 # bake the build machine's CPU flags in (GGML_NATIVE). Pin an AVX2 baseline
 # (Haswell / Excavator and newer) instead for fast SIMD kernels. Not every
 # x86-64 CPU has it: many Pentium, Celeron and Atom models sold as late as
-# ~2021 lack AVX entirely, so main() checks for these same features at
-# startup and shows an error rather than crashing (src/platform/cpufeatures).
-# Keep that list in step with the flags here.
+# ~2021 lack AVX entirely, so main() checks at startup for these features
+# plus the SSE4.2 and BMI2 that ggml-cpu also enables by default when
+# GGML_NATIVE is OFF, and shows an error rather than crashing
+# (src/platform/cpufeatures). Keep that list in step with what ggml-cpu is
+# compiled with.
 #
 # ggml can instead build every CPU variant and pick one at runtime
 # (GGML_CPU_ALL_VARIANTS), but only as separately loaded backend DLLs
@@ -63,12 +65,10 @@ endif()
 # its packaging do not do.
 if(WIN32)
     set(GGML_NATIVE OFF CACHE BOOL "" FORCE)
-    set(GGML_SSE42 ON CACHE BOOL "" FORCE)
     set(GGML_AVX ON CACHE BOOL "" FORCE)
     set(GGML_AVX2 ON CACHE BOOL "" FORCE)
     set(GGML_FMA ON CACHE BOOL "" FORCE)
     set(GGML_F16C ON CACHE BOOL "" FORCE)
-    set(GGML_BMI2 ON CACHE BOOL "" FORCE)
 
     # GPU on Windows. macOS gets Metal, and without an equivalent the same
     # model runs an order of magnitude slower here on CPU alone. Vulkan is

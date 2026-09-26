@@ -4,11 +4,13 @@
 #include <vector>
 
 // The Windows build compiles ggml's CPU kernels for a fixed x86-64 baseline
-// (see the GGML_* flags in CMakeLists.txt). On a CPU without those
+// (the AVX/AVX2/FMA/F16C flags pinned in CMakeLists.txt, plus SSE4.2 and
+// BMI2, which ggml-cpu enables by default when GGML_NATIVE is OFF and which
+// MSVC's /arch:AVX2 may also emit). On a CPU without those
 // instructions the first ggml call dies with an illegal instruction and no
 // message, so main() checks for them up front and explains instead (#69).
 //
-// Keep this list in step with the GGML_* flags pinned in CMakeLists.txt.
+// Keep this list in step with what ggml-cpu is compiled with on Windows.
 
 // The raw CPUID/XGETBV values the check needs, split out from reading them
 // so the decision is testable on any machine.
