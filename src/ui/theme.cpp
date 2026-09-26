@@ -1,5 +1,15 @@
 #include "theme.h"
 
+#include <QGuiApplication>
+#include <QStyleHints>
+
+void Theme::pinDarkColorScheme()
+{
+#if QT_VERSION >= QT_VERSION_CHECK(6, 8, 0)
+    QGuiApplication::styleHints()->setColorScheme(Qt::ColorScheme::Dark);
+#endif
+}
+
 QString Theme::styleSheet()
 {
     return QStringLiteral(R"(
@@ -155,6 +165,22 @@ QMenu::indicator {
     height: 14px;
     margin-left: 8px;
 }
+
+/* ---- dialogs ----
+   Message boxes parented to the main window (the Accessibility prompt) pick
+   up the transparent QWidget background above, which leaves the native
+   window colour showing through behind light text. Give every dialog, and
+   the push buttons in it, an opaque dark look of its own. */
+QDialog { background: #1A1A1D; }
+QDialog QPushButton {
+    background: #2A2A30;
+    border: 1px solid #3A3A42;
+    border-radius: 8px;
+    padding: 5px 14px;
+    font-size: 13px;
+}
+QDialog QPushButton:hover { background: #34343C; }
+QDialog QPushButton:disabled { color: #5E5E66; background: #222226; }
 
 /* ---- scroll area ---- */
 QScrollArea, #scrollBody { background: transparent; border: none; }

@@ -22,6 +22,13 @@ inline const QColor RecordIdle  {0xF5, 0xF5, 0xF7};
 
 QString styleSheet();
 
+// The stylesheet only covers the dark look. Widgets it leaves to the native
+// style (radio button and check box indicators) otherwise follow the system
+// appearance and nearly vanish on the dark background in Light mode, so pin
+// the app to the dark colour scheme. Call once after QApplication exists.
+// No-op before Qt 6.8, which has no API for it.
+void pinDarkColorScheme();
+
 } // namespace Theme
 
 #endif // THEME_H
