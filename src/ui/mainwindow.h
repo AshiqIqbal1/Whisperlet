@@ -62,8 +62,8 @@ private:
                           const QString &clipId, bool dictated);
 
     bool ensureModelReady(); // downloaded? if not, nudges user to Settings
-    void promptForAccessibility(); // one-shot dialog with a deep link to the pane
-    void watchForAccessibility();  // retry tap registration until granted
+    void promptForAccessibility(bool transcriptCopied = false); // one-shot dialog with a deep link to the pane
+    void watchForAccessibility(bool prompt = true); // retry tap registration until granted
     void requestMicrophoneAccess(); // prompt once at startup, never mid-dictation
     bool keepAudio() const;  // user opted to retain clips after transcription
     void purgeStoredAudio();

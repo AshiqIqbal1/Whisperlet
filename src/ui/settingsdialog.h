@@ -52,6 +52,7 @@ private:
     QRadioButton *m_tapRadio = nullptr;
     QComboBox *m_modCombo = nullptr;
     QLabel *m_hotkeyStatus = nullptr;
+    bool m_openedAccessibilitySettings = false;
     QMap<QString, Row> m_rows;
 
     UpdateChecker *m_updateChecker = nullptr;
