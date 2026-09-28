@@ -133,7 +133,11 @@ MainWindow::MainWindow(QWidget *parent)
         m_pill->hide();
         const QString text = m_transcribeWatcher.result();
         if (text.isEmpty()) {
-            flashStatus(tr("Transcription failed: %1").arg(m_engine->lastError()));
+            // An empty result with no error means whisper ran fine but heard
+            // nothing: input under 100 ms, or only a non-speech tag.
+            const QString error = m_engine->lastError();
+            flashStatus(error.isEmpty() ? tr("No speech detected")
+                                        : tr("Transcription failed: %1").arg(error));
             endJob();
             return;
         }
