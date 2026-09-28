@@ -1,15 +1,19 @@
 // Drives the real SettingsDialog "Check for Updates" button end to end,
 // pointing UpdateChecker at a local stand-in HTTP server instead of the
 // real GitHub API so both the checking/success and checking/failure paths
-// are deterministic. Requires QT_QPA_PLATFORM=offscreen (set by the test
-// runner) since it builds real QWidgets.
+// are deterministic. Also checks the single modifier key picker lists every
+// key GlobalHotkey::modKeys() offers and opens its list below the field.
+// Requires QT_QPA_PLATFORM=offscreen (set by the test runner) since it
+// builds real QWidgets.
 
 #include "globalhotkey.h"
 #include "modelmanager.h"
 #include "settingsdialog.h"
 #include "updatechecker.h"
 
+#include <QAbstractItemView>
 #include <QApplication>
+#include <QComboBox>
 #include <QLabel>
 #include <QPushButton>
 #include <QSignalSpy>
@@ -152,6 +156,57 @@ void testDialogIsWindowModalNotApplicationModal()
     SettingsDialog dialog(&models, &hotkey);
     check(dialog.windowModality() == Qt::WindowModal, "settings dialog is window-modal");
 }
+
+void testModifierPickerListsEveryKey()
+{
+    ModelManager models;
+    GlobalHotkey hotkey;
+    SettingsDialog dialog(&models, &hotkey);
+
+    QComboBox *picker = dialog.findChild<QComboBox *>();
+    check(picker != nullptr, "single modifier key picker exists");
+    if (!picker)
+        return;
+
+    const QList<GlobalHotkey::ModKey> keys = GlobalHotkey::modKeys();
+#ifdef Q_OS_MAC
+    check(picker->count() == 8, "macOS picker lists all eight modifier keys");
+#else
+    check(picker->count() == 6, "Windows picker lists six modifier keys");
+#endif
+    check(picker->count() == keys.size(), "picker lists every key modKeys() offers");
+    for (int i = 0; i < qMin(picker->count(), int(keys.size())); ++i) {
+        check(picker->itemData(i).toInt() == int(keys[i]), "picker keeps the modKeys() order");
+        check(picker->itemText(i) == GlobalHotkey::modKeyLabel(keys[i]),
+              "picker shows each key's label");
+    }
+}
+
+void testModifierPickerOpensBelowTheField()
+{
+    ModelManager models;
+    GlobalHotkey hotkey;
+    SettingsDialog dialog(&models, &hotkey);
+    dialog.show();
+    QApplication::processEvents();
+
+    QComboBox *picker = dialog.findChild<QComboBox *>();
+    if (!picker)
+        return;
+    picker->showPopup();
+    QApplication::processEvents();
+
+    // The open list must not sit on top of the field (the macOS placement
+    // that covered the rows around the picker): it drops down from the
+    // field's bottom edge, at least as wide as the field.
+    const QWidget *popup = picker->view()->window();
+    const QRect field(picker->mapToGlobal(QPoint(0, 0)), picker->size());
+    check(popup->isVisible(), "picker list opens");
+    check(popup->geometry().top() > field.bottom(), "picker list opens below the field");
+    check(popup->geometry().left() == field.left(), "picker list lines up with the field");
+    check(popup->width() >= field.width(), "picker list is at least as wide as the field");
+    picker->hidePopup();
+}
 } // namespace
 
 int main(int argc, char **argv)
@@ -166,6 +221,8 @@ int main(int argc, char **argv)
     testCheckingStateThenUpdateAvailable();
     testCheckFailedShowsQuietMessageNoDialog();
     testDialogIsWindowModalNotApplicationModal();
+    testModifierPickerListsEveryKey();
+    testModifierPickerOpensBelowTheField();
 
     if (failures == 0)
         std::printf("All settings-dialog update tests passed.\n");
