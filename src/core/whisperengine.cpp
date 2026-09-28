@@ -18,6 +18,8 @@ WhisperEngine::~WhisperEngine()
 
 bool WhisperEngine::loadModel(const QString &path)
 {
+    m_lastError.clear();
+
     QElapsedTimer clock;
     clock.start();
 
@@ -46,6 +48,8 @@ bool WhisperEngine::loadModel(const QString &path)
 
 QString WhisperEngine::transcribe(const std::vector<float> &samples, const QString &language)
 {
+    m_lastError.clear();
+
     if (!m_ctx) {
         m_lastError = QStringLiteral("no model loaded");
         return QString();

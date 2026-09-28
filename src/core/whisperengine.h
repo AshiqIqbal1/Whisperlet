@@ -29,7 +29,9 @@ public:
 
     // samples: mono, 16kHz, float32 in [-1, 1] — see AudioRecorder.
     // Blocking. Returns the concatenated text of every segment whisper.cpp
-    // produced, trimmed. Empty string on failure (check lastError()).
+    // produced, trimmed. Clears lastError() on entry, so an empty result
+    // with an empty lastError() means whisper heard no speech (for example
+    // input under 100 ms); an empty result with lastError() set is a failure.
     QString transcribe(const std::vector<float> &samples, const QString &language = QStringLiteral("en"));
 
     const QString &lastError() const { return m_lastError; }
