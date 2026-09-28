@@ -42,4 +42,31 @@ inline std::uint64_t macModKeyDeviceFlag(GlobalHotkey::ModKey key)
     return 0;
 }
 
+// Device-independent flag (kCGEventFlagMask*) for the key's kind, set while
+// either side's key of that kind is held.
+inline std::uint64_t macModKeyKindFlag(GlobalHotkey::ModKey key)
+{
+    switch (key) {
+    case GlobalHotkey::ModKey::LeftShift:
+    case GlobalHotkey::ModKey::RightShift: return 0x00020000; // kCGEventFlagMaskShift
+    case GlobalHotkey::ModKey::LeftCtrl:
+    case GlobalHotkey::ModKey::RightCtrl:  return 0x00040000; // kCGEventFlagMaskControl
+    case GlobalHotkey::ModKey::LeftAlt:
+    case GlobalHotkey::ModKey::RightAlt:   return 0x00080000; // kCGEventFlagMaskAlternate
+    case GlobalHotkey::ModKey::LeftCmd:
+    case GlobalHotkey::ModKey::RightCmd:   return 0x00100000; // kCGEventFlagMaskCommand
+    }
+    return 0;
+}
+
+// Flag bits that show some modifier other than `key` is held: every
+// side-specific device flag but its own, plus the kind flags of the other
+// three kinds. Caps Lock and Fn are not counted.
+inline std::uint64_t macOtherModifierFlags(GlobalHotkey::ModKey key)
+{
+    constexpr std::uint64_t kAllDevice = 0x0000207F;
+    constexpr std::uint64_t kAllKinds = 0x001E0000;
+    return (kAllDevice & ~macModKeyDeviceFlag(key)) | (kAllKinds & ~macModKeyKindFlag(key));
+}
+
 #endif // GLOBALHOTKEY_MAC_KEYCODES_H

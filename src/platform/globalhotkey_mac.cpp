@@ -10,6 +10,7 @@
 // asks for.
 #include "globalhotkey.h"
 #include "globalhotkey_mac_keycodes.h"
+#include "globalhotkey_tap.h"
 
 #include <Carbon/Carbon.h>
 
@@ -92,6 +93,12 @@ UInt32 carbonModifiers(Qt::KeyboardModifiers mods)
     return native;
 }
 
+// Event time in milliseconds. CGEventGetTimestamp is nanoseconds since boot.
+std::uint32_t eventTimeMs(CGEventRef event)
+{
+    return std::uint32_t(CGEventGetTimestamp(event) / 1000000);
+}
+
 } // namespace
 
 struct GlobalHotkey::Impl
@@ -107,7 +114,8 @@ struct GlobalHotkey::Impl
     CFRunLoopSourceRef tapSource = nullptr;
     CGKeyCode tapKeyCode = 0;
     CGEventFlags tapDeviceFlag = 0;
-    bool tapPending = false; // target modifier is down, no other key seen
+    CGEventFlags tapOtherFlags = 0; // any of these at press time means a chord
+    ModifierTapDetector tapDetector;
 
     static OSStatus hotKeyCallback(EventHandlerCallRef, EventRef event, void *userData)
     {
@@ -120,9 +128,11 @@ struct GlobalHotkey::Impl
         return noErr;
     }
 
-    // Tap-detection: target modifier pressed then released with nothing else
-    // in between. Any other keypress, modifier change or mouse click cancels
-    // the pending tap, so holding Cmd for a Cmd+C or a Cmd-click never fires.
+    // Tap-detection: target modifier pressed alone and released quickly with
+    // nothing else in between (see ModifierTapDetector). Any other keypress,
+    // modifier change or mouse click cancels the pending tap, so holding Cmd
+    // for a Cmd+C or a Cmd-click never fires, and neither does pressing it
+    // while another modifier is already held.
     static CGEventRef tapCallback(CGEventTapProxy, CGEventType type, CGEventRef event, void *userData)
     {
         auto *impl = static_cast<Impl *>(userData);
@@ -136,18 +146,17 @@ struct GlobalHotkey::Impl
         if (type == kCGEventFlagsChanged) {
             const CGKeyCode code = CGKeyCode(CGEventGetIntegerValueField(event, kCGKeyboardEventKeycode));
             if (code == impl->tapKeyCode) {
-                const bool down = (CGEventGetFlags(event) & impl->tapDeviceFlag) != 0;
-                if (down) {
-                    impl->tapPending = true;
-                } else if (impl->tapPending) {
-                    impl->tapPending = false;
+                const CGEventFlags flags = CGEventGetFlags(event);
+                if (flags & impl->tapDeviceFlag) {
+                    impl->tapDetector.press(eventTimeMs(event), (flags & impl->tapOtherFlags) != 0);
+                } else if (impl->tapDetector.release(eventTimeMs(event))) {
                     emit impl->owner->activated();
                 }
             } else {
-                impl->tapPending = false; // some other modifier moved
+                impl->tapDetector.cancel(); // some other modifier moved
             }
         } else {
-            impl->tapPending = false; // key or mouse button used as a chord
+            impl->tapDetector.cancel(); // key or mouse button used as a chord
         }
 
         return event; // listen-only: never swallow
@@ -187,7 +196,8 @@ bool GlobalHotkey::registerNative()
 
         m_impl->tapKeyCode = CGKeyCode(macModKeyCode(m_modKey));
         m_impl->tapDeviceFlag = CGEventFlags(macModKeyDeviceFlag(m_modKey));
-        m_impl->tapPending = false;
+        m_impl->tapOtherFlags = CGEventFlags(macOtherModifierFlags(m_modKey));
+        m_impl->tapDetector.reset();
 
         const CGEventMask mask = CGEventMaskBit(kCGEventFlagsChanged)
                                | CGEventMaskBit(kCGEventKeyDown)
@@ -244,7 +254,7 @@ void GlobalHotkey::unregisterNative()
         m_impl->tapSource = nullptr;
         m_impl->tap = nullptr;
     }
-    m_impl->tapPending = false;
+    m_impl->tapDetector.reset();
 }
 
 void GlobalHotkey::unregisterHotkey()

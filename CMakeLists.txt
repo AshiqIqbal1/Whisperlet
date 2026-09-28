@@ -178,6 +178,7 @@ qt_add_executable(Whisperlet
     src/ui/recordingpill.cpp
     src/platform/globalhotkey.h
     src/platform/globalhotkey_common.cpp
+    src/platform/globalhotkey_tap.h
     src/platform/textinjector.h
     src/platform/overlaywindow.h
     src/platform/cpufeatures.h
@@ -337,6 +338,7 @@ qt_add_executable(settingsdialog_update_test
     src/core/versioncompare.cpp
     src/platform/globalhotkey.h
     src/platform/globalhotkey_common.cpp
+    src/platform/globalhotkey_tap.h
     src/platform/textinjector.h
 )
 target_include_directories(settingsdialog_update_test PRIVATE
@@ -522,11 +524,14 @@ set_tests_properties(DeviceMenuTest PROPERTIES
 
 # Single-modifier tap keys (#28): each platform lists the right keys with
 # distinct picker labels, saved values keep their meaning, and on macOS each
-# key maps to the side-specific keycode the event tap compares against.
+# key maps to the side-specific keycode the event tap compares against. Also
+# the tap rules (#59): long holds and presses chorded with another modifier
+# do not fire.
 qt_add_executable(globalhotkey_modkeys_test
     tests/globalhotkey_modkeys_test.cpp
     src/platform/globalhotkey.h
     src/platform/globalhotkey_common.cpp
+    src/platform/globalhotkey_tap.h
     src/platform/globalhotkey_mac_keycodes.h
 )
 target_include_directories(globalhotkey_modkeys_test PRIVATE src/platform)

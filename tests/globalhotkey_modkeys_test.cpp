@@ -1,10 +1,13 @@
 // Covers the single-modifier tap keys offered in Settings (issue #28 added
 // the Left-side variants). Checks each platform lists the right keys with
 // distinct picker labels, that existing saved values keep their meaning,
-// and that the macOS keycodes tell the left and right keys apart.
+// and that the macOS keycodes tell the left and right keys apart. Also
+// covers what counts as a tap (#59): a long hold or a press while another
+// modifier is held is not one.
 
 #include "globalhotkey.h"
 #include "globalhotkey_mac_keycodes.h"
+#include "globalhotkey_tap.h"
 
 #include <QSet>
 
@@ -87,6 +90,80 @@ void testMacKeycodesAreSideSpecific()
     check(macModKeyDeviceFlag(ModKey::LeftShift) == 0x02, "Left Shift is NX_DEVICELSHIFTKEYMASK");
     check(macModKeyDeviceFlag(ModKey::RightCtrl) == 0x2000, "Right Control is NX_DEVICERCTLKEYMASK");
 }
+void testMacOtherModifierFlags()
+{
+    constexpr std::uint64_t kShift = 0x00020000, kCmd = 0x00100000, kCapsLock = 0x00010000;
+    const std::uint64_t rightCmd = macOtherModifierFlags(ModKey::RightCmd);
+    check(rightCmd & macModKeyDeviceFlag(ModKey::LeftShift), "Left Shift held counts for Right Cmd");
+    check(rightCmd & macModKeyDeviceFlag(ModKey::LeftCmd), "Left Cmd held counts for Right Cmd");
+    check(rightCmd & kShift, "Shift held counts for Right Cmd");
+    check(!(rightCmd & macModKeyDeviceFlag(ModKey::RightCmd)), "Right Cmd's own flag is not counted");
+    check(!(rightCmd & kCmd), "Right Cmd's own kind flag is not counted");
+    check(!(rightCmd & kCapsLock), "Caps Lock is not counted");
+
+    const std::uint64_t rightShift = macOtherModifierFlags(ModKey::RightShift);
+    check(rightShift & macModKeyDeviceFlag(ModKey::LeftShift), "Left Shift held counts for Right Shift");
+    check(!(rightShift & kShift), "Right Shift's own kind flag is not counted");
+}
+
+void testQuickTapFires()
+{
+    ModifierTapDetector d;
+    d.press(1000, false);
+    check(d.release(1000 + ModifierTapDetector::kMaxTapMs), "release within the limit is a tap");
+    d.press(5000, false);
+    check(d.release(5100), "a second quick tap fires too");
+}
+
+void testLongHoldDoesNotFire()
+{
+    ModifierTapDetector d;
+    d.press(1000, false);
+    check(!d.release(1000 + ModifierTapDetector::kMaxTapMs + 1), "release past the limit is not a tap");
+    d.press(10000, false);
+    check(!d.release(13000), "a several second hold is not a tap");
+}
+
+void testAutoRepeatKeepsFirstPressTime()
+{
+    // Windows repeats WM_KEYDOWN for a held modifier.
+    ModifierTapDetector d;
+    d.press(1000, false);
+    for (std::uint32_t t = 1030; t < 3000; t += 30)
+        d.press(t, false);
+    check(!d.release(3000), "auto-repeat does not restart the hold timer");
+}
+
+void testChordsDoNotFire()
+{
+    ModifierTapDetector d;
+    d.press(1000, true);
+    check(!d.release(1050), "press with another modifier already held is not a tap");
+    d.press(2000, true);
+    d.press(2030, false); // auto-repeat after the other modifier was let go
+    check(!d.release(2060), "auto-repeat does not re-arm a rejected press");
+    d.press(3000, false);
+    d.cancel();
+    check(!d.release(3050), "another key pressed while held cancels the tap");
+    d.press(4000, false);
+    check(d.release(4050), "a clean tap after a chord still fires");
+}
+
+void testReleaseWithoutPressDoesNotFire()
+{
+    ModifierTapDetector d;
+    check(!d.release(1000), "release of a key held before the hook started is not a tap");
+}
+
+void testTickCountWraparound()
+{
+    // Windows' tick count is 32-bit and wraps after about 49.7 days.
+    ModifierTapDetector d;
+    d.press(0xFFFFFF00u, false);
+    check(d.release(0x00000010u), "a quick tap across the wrap still fires");
+    d.press(0xFFFFFF00u, false);
+    check(!d.release(0x00001000u), "a long hold across the wrap does not fire");
+}
 } // namespace
 
 int main()
@@ -94,6 +171,13 @@ int main()
     testEveryKeyIsListedWithItsOwnLabel();
     testExistingSettingValuesAreUnchanged();
     testMacKeycodesAreSideSpecific();
+    testMacOtherModifierFlags();
+    testQuickTapFires();
+    testLongHoldDoesNotFire();
+    testAutoRepeatKeepsFirstPressTime();
+    testChordsDoNotFire();
+    testReleaseWithoutPressDoesNotFire();
+    testTickCountWraparound();
 
     if (failures == 0)
         std::printf("All modifier-key tests passed.\n");

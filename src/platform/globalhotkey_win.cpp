@@ -5,6 +5,7 @@
 // WH_KEYBOARD_LL low-level hook watches for the target modifier being
 // pressed and released with no other key in between. No permission needed.
 #include "globalhotkey.h"
+#include "globalhotkey_tap.h"
 
 #include <QAbstractNativeEventFilter>
 #include <QCoreApplication>
@@ -64,6 +65,24 @@ DWORD modKeyVk(GlobalHotkey::ModKey key)
     return 0;
 }
 
+// On AltGr layouts Windows sends a fake Left Ctrl press ahead of Right Alt.
+// It carries this scan code instead of Left Ctrl's plain 0x1D.
+constexpr DWORD kAltGrFakeCtrlScanCode = 0x21D;
+
+// True when a modifier other than `tapVk` is physically held. With Right Alt
+// as the trigger, Left Ctrl is skipped while it is only AltGr's fake press.
+bool otherModifierHeld(DWORD tapVk, bool altGrCtrlDown)
+{
+    for (DWORD vk : {VK_LSHIFT, VK_RSHIFT, VK_LCONTROL, VK_RCONTROL,
+                     VK_LMENU, VK_RMENU, VK_LWIN, VK_RWIN}) {
+        if (vk == tapVk || (vk == VK_LCONTROL && tapVk == VK_RMENU && altGrCtrlDown))
+            continue;
+        if (GetAsyncKeyState(int(vk)) & 0x8000)
+            return true;
+    }
+    return false;
+}
+
 } // namespace
 
 struct GlobalHotkey::Impl : public QAbstractNativeEventFilter
@@ -74,7 +93,8 @@ struct GlobalHotkey::Impl : public QAbstractNativeEventFilter
 
     HHOOK hook = nullptr;
     DWORD tapVk = 0;
-    bool tapPending = false;
+    ModifierTapDetector tapDetector;
+    bool altGrCtrlDown = false;
 
     // WH_KEYBOARD_LL callbacks get no user pointer — single-instance static.
     static Impl *s_instance;
@@ -104,18 +124,24 @@ struct GlobalHotkey::Impl : public QAbstractNativeEventFilter
             const bool down = (wParam == WM_KEYDOWN || wParam == WM_SYSKEYDOWN);
             const bool up = (wParam == WM_KEYUP || wParam == WM_SYSKEYUP);
 
+            if (kb->vkCode == VK_LCONTROL && kb->scanCode == kAltGrFakeCtrlScanCode)
+                s_instance->altGrCtrlDown = down;
+
+            // kb->time is the tick count in ms. Auto-repeat keydowns while
+            // the key is held keep the first press time, so a long hold is
+            // not a tap however it ends.
             if (kb->vkCode == s_instance->tapVk) {
                 if (down) {
-                    s_instance->tapPending = true;
-                } else if (up && s_instance->tapPending) {
-                    s_instance->tapPending = false;
+                    s_instance->tapDetector.press(
+                        kb->time, otherModifierHeld(s_instance->tapVk, s_instance->altGrCtrlDown));
+                } else if (up && s_instance->tapDetector.release(kb->time)) {
                     // Hook runs on the GUI thread's message loop, but keep
                     // the emission out of the hook callback itself.
                     QMetaObject::invokeMethod(s_instance->owner, "activated",
                                               Qt::QueuedConnection);
                 }
             } else if (down) {
-                s_instance->tapPending = false; // chorded with something else
+                s_instance->tapDetector.cancel(); // chorded with something else
             }
         }
         return CallNextHookEx(nullptr, code, wParam, lParam);
@@ -155,7 +181,8 @@ bool GlobalHotkey::registerNative()
 {
     if (m_tapMode) {
         m_impl->tapVk = modKeyVk(m_modKey);
-        m_impl->tapPending = false;
+        m_impl->tapDetector.reset();
+        m_impl->altGrCtrlDown = false;
         m_impl->hook = SetWindowsHookExW(WH_KEYBOARD_LL, &Impl::hookProc,
                                          GetModuleHandleW(nullptr), 0);
         return m_impl->hook != nullptr;
@@ -187,7 +214,7 @@ void GlobalHotkey::unregisterNative()
         UnhookWindowsHookEx(m_impl->hook);
         m_impl->hook = nullptr;
     }
-    m_impl->tapPending = false;
+    m_impl->tapDetector.reset();
 }
 
 void GlobalHotkey::unregisterHotkey()
