@@ -155,7 +155,7 @@ MainWindow::MainWindow(QWidget *parent)
 
                 // Not while closing: the modal box would hold the close up.
                 if (!m_jobs.closing())
-                    promptForAccessibility();
+                    promptForAccessibility(true);
             }
         }
 
@@ -521,7 +521,7 @@ void MainWindow::watchForAccessibility(bool prompt)
     m_accessibilityWatch->start();
 }
 
-void MainWindow::promptForAccessibility()
+void MainWindow::promptForAccessibility(bool transcriptCopied)
 {
     // Ask at most once per run; re-prompting on every dictation is what made
     // this feel like it asks "every single time". The grant happens in
@@ -537,12 +537,16 @@ void MainWindow::promptForAccessibility()
     box.setText(tr("Whisperlet needs Accessibility access to type into other apps."));
     // The second sentence is for a switch that already shows on: macOS ties
     // the grant to the app's signature, so after an update the old entry can
-    // stay on while this build is still untrusted. The transcript part lives
-    // in the status bar, since the shortcut path asks before any dictation.
-    box.setInformativeText(tr("Open Privacy & Security → Accessibility, then switch "
-                              "Whisperlet on. If it is already on, remove it with "
-                              "the − button, then add Whisperlet back and switch "
-                              "it on."));
+    // stay on while this build is still untrusted. The clipboard sentence is
+    // only for the dictation fallback, since the shortcut path asks before any
+    // dictation has happened.
+    QString info = tr("Open Privacy & Security → Accessibility, then switch "
+                      "Whisperlet on. If it is already on, remove it with "
+                      "the − button, then add Whisperlet back and switch "
+                      "it on.");
+    if (transcriptCopied)
+        info += QLatin1Char(' ') + tr("Your transcript was copied to the clipboard in the meantime.");
+    box.setInformativeText(info);
     const QAbstractButton *openBtn = box.addButton(tr("Open Settings"), QMessageBox::AcceptRole);
     box.addButton(tr("Later"), QMessageBox::RejectRole);
     box.exec();
