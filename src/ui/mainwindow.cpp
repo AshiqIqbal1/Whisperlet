@@ -740,6 +740,7 @@ void MainWindow::addCard(const Transcript &t, bool atTop)
 
     const int insertPos = atTop ? 1 : m_listLayout->count() - 1; // slot 0 is the empty state
     m_listLayout->insertWidget(insertPos, card);
+    card->show();
     atTop ? m_cards.prepend(card) : m_cards.append(card);
 
     // New transcripts land at the top, so bring the list back up to show
