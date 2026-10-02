@@ -365,6 +365,7 @@ QWidget *MainWindow::buildList()
     m_emptyLabel->setObjectName(QStringLiteral("emptyTitle"));
     m_emptyLabel->setAlignment(Qt::AlignCenter);
     m_emptyLabel->setWordWrap(true);
+    m_emptyLabel->setTextFormat(Qt::PlainText);
     emptyLay->addWidget(m_emptyLabel);
     m_listLayout->insertWidget(0, m_emptyState);
 
@@ -836,12 +837,11 @@ void MainWindow::refreshEmptyState()
 
     // A search that hides every card would otherwise leave a blank list
     // that looks the same as a broken window.
-    const QString needle = m_search ? m_search->text() : QString();
-    const bool anyMatch = std::any_of(m_cards.cbegin(), m_cards.cend(),
-                                      [&](const TranscriptCard *card) { return card->matches(needle); });
-    if (!anyMatch)
-        m_emptyLabel->setText(tr("No transcripts match \"%1\"").arg(needle));
-    m_emptyState->setVisible(!anyMatch);
+    const bool anyShown = std::any_of(m_cards.cbegin(), m_cards.cend(),
+                                      [](const TranscriptCard *card) { return !card->isHidden(); });
+    if (!anyShown)
+        m_emptyLabel->setText(tr("No transcripts match \"%1\"").arg(m_search->text()));
+    m_emptyState->setVisible(!anyShown);
 }
 
 void MainWindow::flashStatus(const QString &message)
