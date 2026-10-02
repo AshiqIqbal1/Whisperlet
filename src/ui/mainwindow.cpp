@@ -48,6 +48,8 @@
 #include <QVBoxLayout>
 #include <QtConcurrent>
 
+#include <algorithm>
+
 namespace {
 constexpr int kWindowW = 560;
 constexpr int kWindowH = 760;
@@ -359,10 +361,11 @@ QWidget *MainWindow::buildList()
     m_emptyState = new QWidget(body);
     auto *emptyLay = new QVBoxLayout(m_emptyState);
     emptyLay->setContentsMargins(0, 72, 0, 0);
-    auto *emptyLabel = new QLabel(tr("Nothing transcribed yet\n\nPress record, or use your shortcut\nfrom anywhere"), m_emptyState);
-    emptyLabel->setObjectName(QStringLiteral("emptyTitle"));
-    emptyLabel->setAlignment(Qt::AlignCenter);
-    emptyLay->addWidget(emptyLabel);
+    m_emptyLabel = new QLabel(m_emptyState); // text set by refreshEmptyState()
+    m_emptyLabel->setObjectName(QStringLiteral("emptyTitle"));
+    m_emptyLabel->setAlignment(Qt::AlignCenter);
+    m_emptyLabel->setWordWrap(true);
+    emptyLay->addWidget(m_emptyLabel);
     m_listLayout->insertWidget(0, m_emptyState);
 
     scroll->setWidget(body);
@@ -825,7 +828,20 @@ void MainWindow::applyFilter(const QString &needle)
 
 void MainWindow::refreshEmptyState()
 {
-    m_emptyState->setVisible(m_cards.isEmpty());
+    if (m_cards.isEmpty()) {
+        m_emptyLabel->setText(tr("Nothing transcribed yet\n\nPress record, or use your shortcut\nfrom anywhere"));
+        m_emptyState->setVisible(true);
+        return;
+    }
+
+    // A search that hides every card would otherwise leave a blank list
+    // that looks the same as a broken window.
+    const QString needle = m_search ? m_search->text() : QString();
+    const bool anyMatch = std::any_of(m_cards.cbegin(), m_cards.cend(),
+                                      [&](const TranscriptCard *card) { return card->matches(needle); });
+    if (!anyMatch)
+        m_emptyLabel->setText(tr("No transcripts match \"%1\"").arg(needle));
+    m_emptyState->setVisible(!anyMatch);
 }
 
 void MainWindow::flashStatus(const QString &message)
