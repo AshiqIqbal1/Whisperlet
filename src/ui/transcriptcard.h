@@ -30,6 +30,10 @@ public:
     const Transcript &data() const { return m_data; }
     bool matches(const QString &needle) const;
 
+    // Replaces the transcript text in place (Transcribe again), keeping the
+    // card's position in the list and its Show more/less state.
+    void setText(const QString &text);
+
     // Play / re-transcribe only work while the clip's audio is on disk;
     // audio is discarded after transcription unless the user opts to keep it.
     void setAudioAvailable(bool available);

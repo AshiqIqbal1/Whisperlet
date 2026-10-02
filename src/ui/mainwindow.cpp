@@ -167,14 +167,12 @@ MainWindow::MainWindow(QWidget *parent)
         }
 
         if (isRetry) {
-            // Update the existing card in place: delete + re-add keeps it simple.
+            // Update the existing card in place. Re-adding it would move an
+            // old transcript to the top, out of date order, and that order
+            // is what persist() saves.
             for (auto *card : std::as_const(m_cards)) {
                 if (card->data().id == clipId) {
-                    Transcript updated = card->data();
-                    updated.text = text;
-                    m_cards.removeOne(card);
-                    card->deleteLater();
-                    addCard(updated, true);
+                    card->setText(text);
                     break;
                 }
             }
