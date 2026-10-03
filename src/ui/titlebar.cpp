@@ -33,6 +33,7 @@ TitleBar::TitleBar(QWidget *parent)
     minBtn->setIcon(Icons::icon(Icons::Minimize, Theme::TextMuted, 14));
     minBtn->setFixedSize(30, 30);
     minBtn->setToolTip(tr("Minimize"));
+    minBtn->setAccessibleName(minBtn->toolTip());
     connect(minBtn, &QToolButton::clicked, this, [this] { window()->showMinimized(); });
     layout->addWidget(minBtn);
 
@@ -40,6 +41,7 @@ TitleBar::TitleBar(QWidget *parent)
     closeBtn->setIcon(Icons::icon(Icons::Close, Theme::TextMuted, 14));
     closeBtn->setFixedSize(30, 30);
     closeBtn->setToolTip(tr("Close"));
+    closeBtn->setAccessibleName(closeBtn->toolTip());
     connect(closeBtn, &QToolButton::clicked, this, [this] { window()->close(); });
     layout->addWidget(closeBtn);
 }

@@ -109,6 +109,7 @@ QToolButton *TranscriptCard::makeAction(Icons::Name icon, const QString &tip, bo
     b->setIcon(Icons::icon(icon, danger ? Theme::Danger : Theme::TextMuted, 17));
     b->setIconSize({17, 17});
     b->setToolTip(tip);
+    b->setAccessibleName(tip); // icon only: the tooltip alone is not announced as a name
     b->setCursor(Qt::PointingHandCursor);
     b->setFixedSize(28, 28);
     if (danger)

@@ -19,6 +19,8 @@ RecordButton::RecordButton(QWidget *parent)
     setFocusPolicy(Qt::StrongFocus);
     setAttribute(Qt::WA_Hover, true);
     setToolTip(tr("Start recording  (Space)"));
+    // Icon only, so screen readers need a name; the tooltip is only a hint.
+    setAccessibleName(tr("Start recording"));
 
     m_pulseAnim = new QPropertyAnimation(this, "pulse", this);
     m_pulseAnim->setDuration(1400);
@@ -64,6 +66,7 @@ void RecordButton::setRecording(bool recording)
 
     setToolTip(recording ? tr("Stop recording  (Space)")
                          : tr("Start recording  (Space)"));
+    setAccessibleName(recording ? tr("Stop recording") : tr("Start recording"));
 
     m_morphAnim->stop();
     m_morphAnim->setStartValue(m_morph);
