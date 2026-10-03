@@ -561,6 +561,107 @@ add_test(NAME DialogThemeTest COMMAND dialogtheme_test)
 set_tests_properties(DialogThemeTest PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
+# Drives the footer Clear all button on the real MainWindow with saved
+# transcripts and clips under a scratch HOME (#77): the confirmation names
+# the total and the cards the search hides, Cancel keeps everything, Delete
+# All removes exactly what the box counted and leaves a card that arrived
+# while it was open. Builds the whole window, so it links whisper.cpp too.
+qt_add_executable(clearall_confirm_test
+    tests/clearall_confirm_test.cpp
+    src/ui/mainwindow.h
+    src/ui/mainwindow.cpp
+    src/ui/theme.h
+    src/ui/theme.cpp
+    src/ui/icons.h
+    src/ui/icons.cpp
+    src/ui/recordbutton.h
+    src/ui/recordbutton.cpp
+    src/ui/transcriptcard.h
+    src/ui/transcriptcard.cpp
+    src/ui/settingsdialog.h
+    src/ui/settingsdialog.cpp
+    src/ui/titlebar.h
+    src/ui/titlebar.cpp
+    src/ui/recordingpill.h
+    src/ui/recordingpill.cpp
+    src/core/modelcatalog.h
+    src/core/modelcatalog.cpp
+    src/core/modelmanager.h
+    src/core/modelmanager.cpp
+    src/core/updatechecker.h
+    src/core/updatechecker.cpp
+    src/core/versioncompare.h
+    src/core/versioncompare.cpp
+    src/core/whisperengine.h
+    src/core/whisperengine.cpp
+    src/core/audiorecorder.h
+    src/core/audiorecorder.cpp
+    src/core/audioutil.h
+    src/core/audioutil.cpp
+    src/core/audioclipstore.h
+    src/core/audioclipstore.cpp
+    src/core/audiofiledecoder.h
+    src/core/audiofiledecoder.cpp
+    src/core/transcriptstore.h
+    src/core/transcriptstore.cpp
+    src/core/jobgate.h
+    src/platform/globalhotkey.h
+    src/platform/globalhotkey_common.cpp
+    src/platform/textinjector.h
+    src/platform/overlaywindow.h
+)
+qt_add_resources(clearall_confirm_test "clearall_confirm_assets"
+    PREFIX "/"
+    FILES assets/icon-64.png
+)
+target_include_directories(clearall_confirm_test PRIVATE
+    src
+    src/ui
+    src/core
+    src/platform
+    ${CMAKE_CURRENT_BINARY_DIR}/generated
+)
+target_link_libraries(clearall_confirm_test PRIVATE
+    Qt::Core
+    Qt::Widgets
+    Qt::Svg
+    Qt::Network
+    Qt::Multimedia
+    Qt::Concurrent
+    Qt::Test
+    whisper
+)
+if(APPLE)
+    target_sources(clearall_confirm_test PRIVATE
+        src/platform/globalhotkey_mac.cpp
+        src/platform/globalhotkey_mac_keycodes.h
+        src/platform/textinjector_mac.cpp
+        src/platform/overlaywindow_mac.mm
+    )
+    target_link_libraries(clearall_confirm_test PRIVATE
+        "-framework Carbon"
+        "-framework ApplicationServices"
+        "-framework AppKit"
+    )
+elseif(WIN32)
+    target_sources(clearall_confirm_test PRIVATE
+        src/platform/globalhotkey_win.cpp
+        src/platform/textinjector_win.cpp
+        src/platform/overlaywindow_win.cpp
+    )
+endif()
+add_test(NAME ClearAllConfirmTest COMMAND clearall_confirm_test)
+if(APPLE)
+    # The window owns the recording pill, whose overlay casts winId() to an
+    # NSView; the offscreen platform has none, so this one runs on cocoa and
+    # briefly shows the window and its confirmation box.
+    set_tests_properties(ClearAllConfirmTest PROPERTIES
+        ENVIRONMENT "QT_QPA_PLATFORM=cocoa")
+else()
+    set_tests_properties(ClearAllConfirmTest PROPERTIES
+        ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+endif()
+
 # Every *_test executable above, so CI can build just the tests without
 # compiling the app and vendored whisper.cpp. Collected rather than listed
 # so a new test is picked up without touching this.
