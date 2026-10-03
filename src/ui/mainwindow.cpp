@@ -40,6 +40,7 @@
 #include <QScreen>
 #include <QScrollArea>
 #include <QScrollBar>
+#include <QSet>
 #include <QSettings>
 #include <QStatusBar>
 #include <QTimer>
@@ -443,8 +444,13 @@ QWidget *MainWindow::buildFooter()
         // ones a search is showing, so say exactly that before deleting.
         const int total = int(m_cards.size());
         const QString needle = m_search->text();
-        const int shown = int(std::count_if(m_cards.cbegin(), m_cards.cend(),
-                                            [&](const TranscriptCard *card) { return card->matches(needle); }));
+        QSet<QString> counted;
+        int shown = 0;
+        for (const auto *card : std::as_const(m_cards)) {
+            counted.insert(card->data().id);
+            if (card->matches(needle))
+                ++shown;
+        }
         QMessageBox box(this);
         box.setIcon(QMessageBox::Warning);
         box.setWindowTitle(tr("Clear all"));
@@ -463,11 +469,13 @@ QWidget *MainWindow::buildFooter()
         if (box.clickedButton() != deleteBtn)
             return;
 
-        for (auto *card : std::as_const(m_cards)) {
+        m_cards.removeIf([&](TranscriptCard *card) {
+            if (!counted.contains(card->data().id))
+                return false;
             AudioClipStore::remove(card->data().id);
             card->deleteLater();
-        }
-        m_cards.clear();
+            return true;
+        });
         persist();
         refreshEmptyState();
         flashStatus(tr("Cleared"));
