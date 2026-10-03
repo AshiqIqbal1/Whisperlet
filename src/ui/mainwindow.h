@@ -83,6 +83,7 @@ private:
     QVBoxLayout  *m_listLayout = nullptr;
     QScrollArea  *m_scroll = nullptr;
     QWidget      *m_emptyState = nullptr;
+    QLabel       *m_emptyLabel = nullptr;
     RecordButton *m_record = nullptr;
     QLabel       *m_status = nullptr;
     QLabel       *m_hint = nullptr;
