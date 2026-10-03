@@ -655,8 +655,15 @@ if(APPLE)
     # The window owns the recording pill, whose overlay casts winId() to an
     # NSView; the offscreen platform has none, so this one runs on cocoa and
     # briefly shows the window and its confirmation box.
+    #
+    # On cocoa the box's warning icon is a system PDF asset. CoreGraphics
+    # scans it with strndup() over a length-bound, unterminated buffer, and
+    # ASan's strict_string_checks walks past that buffer looking for a NUL
+    # and reports a heap-buffer-overflow inside Apple's own code. Keep the
+    # rest of the CI ASAN_OPTIONS and switch off only that check here.
     set_tests_properties(ClearAllConfirmTest PROPERTIES
-        ENVIRONMENT "QT_QPA_PLATFORM=cocoa")
+        ENVIRONMENT "QT_QPA_PLATFORM=cocoa"
+        ENVIRONMENT_MODIFICATION "ASAN_OPTIONS=string_append::strict_string_checks=0")
 else()
     set_tests_properties(ClearAllConfirmTest PROPERTIES
         ENVIRONMENT "QT_QPA_PLATFORM=offscreen")

@@ -35,19 +35,23 @@
 #include <functional>
 #include <vector>
 
-// The only path into the card list from outside the window is a finished
-// transcription, which needs a downloaded model and audio. Open the window
-// up so the test can call addCard() the way that handler does while the
-// confirmation box is sitting open.
-#define private public
-#define protected public
-#include "mainwindow.h"
-#undef private
-#undef protected
-
 #include "audioclipstore.h"
+#include "mainwindow.h"
 #include "theme.h"
 #include "transcriptstore.h"
+
+// The only path into the card list from outside the window is a finished
+// transcription, which needs a downloaded model and audio. MainWindow
+// befriends this so the test can add a card the way that handler does while
+// the confirmation box is sitting open. (A friend rather than redefining
+// `private`: MSVC mangles the access level into symbol names, so a method
+// declared private in the header and called as public never links.)
+struct MainWindowTestAccess
+{
+    static void addCard(MainWindow &w, const Transcript &t) { w.addCard(t, /*atTop=*/true); }
+    static void persist(MainWindow &w) { w.persist(); }
+    static const QList<TranscriptCard *> &cards(const MainWindow &w) { return w.m_cards; }
+};
 
 namespace {
 int failures = 0;
@@ -85,7 +89,7 @@ QStringList savedIds()
 QStringList cardIds(const MainWindow &w)
 {
     QStringList ids;
-    for (const TranscriptCard *card : w.m_cards)
+    for (const TranscriptCard *card : MainWindowTestAccess::cards(w))
         ids << card->data().id;
     return ids;
 }
@@ -253,7 +257,7 @@ int main(int argc, char **argv)
             check(box != nullptr, "delete: box opened");
             if (!box)
                 return;
-            w.addCard(late, true);
+            MainWindowTestAccess::addCard(w, late);
             check(cardIds(w).size() == 5, "delete: late card joined the list while the box was open");
             QPushButton *deleteAll = buttonTitled(box, QStringLiteral("Delete All"));
             check(deleteAll != nullptr, "delete: box offers Delete All");
@@ -279,8 +283,8 @@ int main(int argc, char **argv)
 
     // --- Three cards, a search hiding exactly one: singular hidden wording.
     search->clear();
-    w.addCard(make("id-extra-a", "Meeting agenda for Monday.", 3), true);
-    w.addCard(make("id-extra-b", "Reminder: water the plants.", 3), true);
+    MainWindowTestAccess::addCard(w, make("id-extra-a", "Meeting agenda for Monday.", 3));
+    MainWindowTestAccess::addCard(w, make("id-extra-b", "Reminder: water the plants.", 3));
     QTest::keyClicks(search, QStringLiteral("meeting"));
     {
         bool opened = false;
@@ -327,8 +331,8 @@ int main(int argc, char **argv)
     }
 
     // --- One transcript left: singular prompt.
-    w.addCard(make("id-only", "The only transcript.", 3), true);
-    w.persist();
+    MainWindowTestAccess::addCard(w, make("id-only", "The only transcript.", 3));
+    MainWindowTestAccess::persist(w);
     {
         bool opened = false;
         whenBoxOpens([&](QMessageBox *box) {
