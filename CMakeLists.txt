@@ -463,6 +463,20 @@ add_test(NAME AccessibleNamesTest COMMAND accessiblenames_test)
 set_tests_properties(AccessibleNamesTest PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
+# The record button's blue focus ring is only for keyboard (Tab) focus.
+qt_add_executable(recordbutton_focusring_test
+    tests/recordbutton_focusring_test.cpp
+    src/ui/theme.h
+    src/ui/theme.cpp
+    src/ui/recordbutton.h
+    src/ui/recordbutton.cpp
+)
+target_include_directories(recordbutton_focusring_test PRIVATE src src/ui)
+target_link_libraries(recordbutton_focusring_test PRIVATE Qt::Core Qt::Widgets Qt::Test)
+add_test(NAME RecordButtonFocusRingTest COMMAND recordbutton_focusring_test)
+set_tests_properties(RecordButtonFocusRingTest PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
 # Ids stored on AudioClipStore end up on disk (transcripts.json) and get fed
 # straight back into path building, so this locks down that an id trying to
 # escape the audio directory (`../..`, an absolute path, separators) is
