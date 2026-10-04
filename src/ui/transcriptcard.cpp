@@ -136,6 +136,12 @@ void TranscriptCard::applyText()
                                     Theme::Accent, 14));
 }
 
+void TranscriptCard::setText(const QString &text)
+{
+    m_data.text = text;
+    applyText();
+}
+
 void TranscriptCard::toggleExpanded()
 {
     m_expanded = !m_expanded;

@@ -408,6 +408,32 @@ add_test(NAME PlaybackTriggerTest COMMAND playback_trigger_test)
 set_tests_properties(PlaybackTriggerTest PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
+# Transcribe again must update the card in place, not re-add it at the top.
+qt_add_executable(transcriptcard_settext_test
+    tests/transcriptcard_settext_test.cpp
+    src/ui/theme.h
+    src/ui/theme.cpp
+    src/ui/icons.h
+    src/ui/icons.cpp
+    src/ui/transcriptcard.h
+    src/ui/transcriptcard.cpp
+)
+target_include_directories(transcriptcard_settext_test PRIVATE
+    src
+    src/ui
+    src/core
+    ${CMAKE_CURRENT_BINARY_DIR}/generated
+)
+target_link_libraries(transcriptcard_settext_test PRIVATE
+    Qt::Core
+    Qt::Widgets
+    Qt::Svg
+    Qt::Test
+)
+add_test(NAME TranscriptCardSetTextTest COMMAND transcriptcard_settext_test)
+set_tests_properties(TranscriptCardSetTextTest PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
 # Ids stored on AudioClipStore end up on disk (transcripts.json) and get fed
 # straight back into path building, so this locks down that an id trying to
 # escape the audio directory (`../..`, an absolute path, separators) is
