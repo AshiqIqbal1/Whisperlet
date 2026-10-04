@@ -40,6 +40,7 @@
 #include <QScreen>
 #include <QScrollArea>
 #include <QScrollBar>
+#include <QSet>
 #include <QSettings>
 #include <QStatusBar>
 #include <QTimer>
@@ -436,11 +437,45 @@ QWidget *MainWindow::buildFooter()
     trash->setIcon(Icons::icon(Icons::Trash, Theme::TextMuted, 16));
     trash->setToolTip(tr("Clear all"));
     connect(trash, &QToolButton::clicked, this, [this] {
-        for (auto *card : std::as_const(m_cards)) {
+        if (m_cards.isEmpty())
+            return;
+
+        // Clear all has no undo and takes every transcript, not only the
+        // ones a search is showing, so say exactly that before deleting.
+        const int total = int(m_cards.size());
+        const QString needle = m_search->text();
+        QSet<QString> counted;
+        int shown = 0;
+        for (const auto *card : std::as_const(m_cards)) {
+            counted.insert(card->data().id);
+            if (card->matches(needle))
+                ++shown;
+        }
+        QMessageBox box(this);
+        box.setIcon(QMessageBox::Warning);
+        box.setWindowTitle(tr("Clear all"));
+        box.setText(total == 1 ? tr("Delete your only transcript?")
+                               : tr("Delete all %1 transcripts?").arg(total));
+        QString detail = tr("Kept recordings are deleted too. This can't be undone.");
+        const int hidden = total - shown;
+        if (hidden == 1)
+            detail.prepend(tr("This includes 1 transcript hidden by the current search. "));
+        else if (hidden > 1)
+            detail.prepend(tr("This includes %1 transcripts hidden by the current search. ").arg(hidden));
+        box.setInformativeText(detail);
+        const QAbstractButton *deleteBtn = box.addButton(tr("Delete All"), QMessageBox::DestructiveRole);
+        box.setDefaultButton(box.addButton(QMessageBox::Cancel));
+        box.exec();
+        if (box.clickedButton() != deleteBtn)
+            return;
+
+        m_cards.removeIf([&](TranscriptCard *card) {
+            if (!counted.contains(card->data().id))
+                return false;
             AudioClipStore::remove(card->data().id);
             card->deleteLater();
-        }
-        m_cards.clear();
+            return true;
+        });
         persist();
         refreshEmptyState();
         flashStatus(tr("Cleared"));

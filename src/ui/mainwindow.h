@@ -113,6 +113,10 @@ private:
 
     QElapsedTimer m_recordClock;
     QList<TranscriptCard *> m_cards;
+
+    // tests/clearall_confirm_test.cpp adds a card and persists while the
+    // Clear all box is open, the way a finishing transcription does.
+    friend struct MainWindowTestAccess;
 };
 
 #endif // MAINWINDOW_H
