@@ -434,6 +434,35 @@ add_test(NAME TranscriptCardSetTextTest COMMAND transcriptcard_settext_test)
 set_tests_properties(TranscriptCardSetTextTest PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
+# Icon-only buttons need an accessible name, not just a tooltip.
+qt_add_executable(accessiblenames_test
+    tests/accessiblenames_test.cpp
+    src/ui/theme.h
+    src/ui/theme.cpp
+    src/ui/icons.h
+    src/ui/icons.cpp
+    src/ui/transcriptcard.h
+    src/ui/transcriptcard.cpp
+    src/ui/titlebar.h
+    src/ui/titlebar.cpp
+    src/ui/recordbutton.h
+    src/ui/recordbutton.cpp
+)
+target_include_directories(accessiblenames_test PRIVATE
+    src
+    src/ui
+    src/core
+    ${CMAKE_CURRENT_BINARY_DIR}/generated
+)
+target_link_libraries(accessiblenames_test PRIVATE
+    Qt::Core
+    Qt::Widgets
+    Qt::Svg
+)
+add_test(NAME AccessibleNamesTest COMMAND accessiblenames_test)
+set_tests_properties(AccessibleNamesTest PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
 # Ids stored on AudioClipStore end up on disk (transcripts.json) and get fed
 # straight back into path building, so this locks down that an id trying to
 # escape the audio directory (`../..`, an absolute path, separators) is

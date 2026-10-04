@@ -326,6 +326,7 @@ QWidget *MainWindow::buildHeader()
     m_search = new QLineEdit(wrap);
     m_search->setObjectName(QStringLiteral("searchBar"));
     m_search->setPlaceholderText(tr("Search in transcriptions"));
+    m_search->setAccessibleName(tr("Search transcriptions"));
     m_search->setClearButtonEnabled(true);
     connect(m_search, &QLineEdit::textChanged, this, &MainWindow::applyFilter);
 
@@ -400,6 +401,7 @@ QWidget *MainWindow::buildFooter()
     mic->setObjectName(QStringLiteral("footerBtn"));
     mic->setIcon(Icons::icon(Icons::Mic, Theme::TextMuted, 16));
     mic->setToolTip(tr("Input device"));
+    mic->setAccessibleName(mic->toolTip());
     connect(mic, &QToolButton::clicked, this, [this, mic] {
         // Fresh menu on every click — device list changes as mics (un)plug.
         QMenu menu(this);
@@ -434,6 +436,7 @@ QWidget *MainWindow::buildFooter()
     trash->setObjectName(QStringLiteral("footerBtn"));
     trash->setIcon(Icons::icon(Icons::Trash, Theme::TextMuted, 16));
     trash->setToolTip(tr("Clear all"));
+    trash->setAccessibleName(trash->toolTip());
     connect(trash, &QToolButton::clicked, this, [this] {
         if (m_cards.isEmpty())
             return;
@@ -484,6 +487,7 @@ QWidget *MainWindow::buildFooter()
     settings->setObjectName(QStringLiteral("footerBtn"));
     settings->setIcon(Icons::icon(Icons::Settings, Theme::TextMuted, 16));
     settings->setToolTip(tr("Settings"));
+    settings->setAccessibleName(settings->toolTip());
     connect(settings, &QToolButton::clicked, this, &MainWindow::openSettings);
     bottomRow->addWidget(settings);
 
