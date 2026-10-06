@@ -34,10 +34,14 @@ protected:
     void paintEvent(QPaintEvent *event) override;
     void enterEvent(QEnterEvent *event) override;
     void leaveEvent(QEvent *event) override;
+    void focusInEvent(QFocusEvent *event) override;
+    void focusOutEvent(QFocusEvent *event) override;
+    void mousePressEvent(QMouseEvent *event) override;
 
 private:
     bool m_recording = false;
     bool m_hovered = false;
+    bool m_keyboardFocus = false; // focus ring only when reached with Tab
     qreal m_pulse = 0.0;   // 0..1 breathing halo
     qreal m_morph = 0.0;   // 0 = disc, 1 = rounded square
     qreal m_level = 0.0;

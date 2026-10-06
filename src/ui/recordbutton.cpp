@@ -2,6 +2,8 @@
 #include "theme.h"
 
 #include <QEasingCurve>
+#include <QFocusEvent>
+#include <QMouseEvent>
 #include <QPainter>
 #include <QPainterPath>
 #include <QPropertyAnimation>
@@ -83,6 +85,30 @@ void RecordButton::setRecording(bool recording)
     update();
 }
 
+void RecordButton::focusInEvent(QFocusEvent *event)
+{
+    m_keyboardFocus = event->reason() == Qt::TabFocusReason
+                      || event->reason() == Qt::BacktabFocusReason;
+    QAbstractButton::focusInEvent(event);
+    update();
+}
+
+void RecordButton::focusOutEvent(QFocusEvent *event)
+{
+    m_keyboardFocus = false;
+    QAbstractButton::focusOutEvent(event);
+    update();
+}
+
+void RecordButton::mousePressEvent(QMouseEvent *event)
+{
+    // A click on a button that already has focus sends no focusInEvent, so
+    // drop the keyboard ring here too.
+    m_keyboardFocus = false;
+    update();
+    QAbstractButton::mousePressEvent(event);
+}
+
 void RecordButton::enterEvent(QEnterEvent *event)
 {
     m_hovered = true;
@@ -146,7 +172,10 @@ void RecordButton::paintEvent(QPaintEvent *)
     p.setPen(QPen(QColor(255, 255, 255, m_recording ? 26 : 40), 1.0));
     p.drawRoundedRect(body.adjusted(0.5, 0.5, -0.5, -0.5), radius, radius);
 
-    if (hasFocus()) {
+    // Only for keyboard navigation: the button keeps focus at launch and
+    // after a click (so Space records), and a ring there reads as a stray
+    // blue highlight.
+    if (hasFocus() && m_keyboardFocus) {
         p.setPen(QPen(Theme::Accent, 2.0));
         p.drawEllipse(c, r + 7.0, r + 7.0);
     }
