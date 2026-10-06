@@ -74,6 +74,16 @@ int main(int argc, char **argv)
     giveFocus(button, Qt::MouseFocusReason);
     check(accentPixels(button) == 0, "ring goes away once focus moves by mouse");
 
+    // Clicking the button while it already has keyboard focus: Qt sends no
+    // focusInEvent (focus does not change), so the click itself must clear
+    // the ring.
+    giveFocus(button, Qt::TabFocusReason);
+    check(accentPixels(button) > 0, "ring shows again when reached with Tab");
+    QTest::mouseClick(&button, Qt::LeftButton, Qt::NoModifier, button.rect().center());
+    QCoreApplication::processEvents();
+    check(button.hasFocus(), "button keeps focus after the click");
+    check(accentPixels(button) == 0, "ring goes away when the focused button is clicked");
+
     if (failures == 0)
         std::printf("All record button focus ring tests passed.\n");
     return failures == 0 ? EXIT_SUCCESS : EXIT_FAILURE;

@@ -3,6 +3,7 @@
 
 #include <QEasingCurve>
 #include <QFocusEvent>
+#include <QMouseEvent>
 #include <QPainter>
 #include <QPainterPath>
 #include <QPropertyAnimation>
@@ -97,6 +98,15 @@ void RecordButton::focusOutEvent(QFocusEvent *event)
     m_keyboardFocus = false;
     QAbstractButton::focusOutEvent(event);
     update();
+}
+
+void RecordButton::mousePressEvent(QMouseEvent *event)
+{
+    // A click on a button that already has focus sends no focusInEvent, so
+    // drop the keyboard ring here too.
+    m_keyboardFocus = false;
+    update();
+    QAbstractButton::mousePressEvent(event);
 }
 
 void RecordButton::enterEvent(QEnterEvent *event)
